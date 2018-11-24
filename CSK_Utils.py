@@ -69,6 +69,32 @@ class CSK_Utils():
 
         return tracks
 
+    def date_sate_direc_2track(self,day,sate,direc):
+        
+        tracks={}
+        satelist = ['CSKS1','CSKS2','CSKS3','CSKS4']
+        for satename in satelist:
+            tracks[satename]=[]
+            
+            if sate != None and satename != sate:
+                continue
+            
+            csks2date = day - datetime.timedelta(days=self.ref_day[satename])
+            for ref_date,crsp_tracks in self.ref_track.items():
+                
+                if (csks2date - ref_date).days % 16 == 0 :
+                    tracks[satename] = crsp_tracks
+
+        track_num = None
+        for this_track in tracks[sate]:
+            if direc == 'asc' and this_track<=10:
+                track_num = this_track
+            if direc == 'desc' and this_track>=11:
+                track_num = this_track
+        
+        return track_num
+
+
     def date_track2sate(self,day,track):
         
         satelist = ['CSKS1','CSKS2','CSKS3','CSKS4']

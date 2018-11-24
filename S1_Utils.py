@@ -6,12 +6,13 @@ from datetime import date
 class S1_Utils():
     def __init__(self):
 
-        tracks = [37, 52, 169, 65]
+        tracks = [37, 52, 169, 65, 7]
         self.numberOfFrames = {}
         self.numberOfFrames[37] = 5
         self.numberOfFrames[52] = 5
         self.numberOfFrames[169] = 4
         self.numberOfFrames[65] = 4
+        self.numberOfFrames[7] = 5
 
         # from date to track
         ref_track={}  
@@ -19,6 +20,7 @@ class S1_Utils():
         ref_track[date(2018,2,20)] = [52]
         ref_track[date(2018,2,22)] = [169]
         ref_track[date(2018,2,21)] = [65]
+        ref_track[date(2018,2,11)] = [7]
 
         self.ref_track = ref_track
 
