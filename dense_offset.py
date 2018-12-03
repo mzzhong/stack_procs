@@ -1035,7 +1035,7 @@ class dense_offset():
             azOffset_filtered[nan_ind] = np.nan
             rngOffset_filtered[nan_ind] = np.nan
 
-            # Display.
+            # Display (Save the figures)
             self._display_az_rng(azOffset_filtered, rngOffset_filtered, refer_azOffset, refer_rngOffset, azOffset, rngOffset, title)
 
             # Convert the unit from meter per day to pixel.
@@ -1125,8 +1125,11 @@ class dense_offset():
             print(cmd2)
 
             if self.exe:
+                # Delete the old files.
                 #os.system('rm ' + self.trackfolder + '/' + self.geometry + '/gc*')
                 #os.system('rm ' + self.trackfolder + '/' + self.geometry + '/temp*')
+
+                # Generate new files.
                 os.system(cmd1)
                 os.system(cmd2)
 
@@ -1191,8 +1194,9 @@ class dense_offset():
 
                 # Non-parallel computing.
                 if self.exe:
-                   #os.system('rm ' + doc.offset_folder + '/gc*')
-                   #os.system('rm ' + doc.offset_folder + '/*temp*')
+                    # Delete the old files.
+                    os.system('rm ' + doc.offset_folder + '/gc*')
+                    os.system('rm ' + doc.offset_folder + '/*temp*')
  
                     os.system(cmd1)
                     os.system(cmd2)
