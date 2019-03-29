@@ -27,11 +27,19 @@ import gdal
 from medianfilter2d import medianfilter2d as mdf
 
 import cv2
+
+
+version='_v9'
  
 def run_denseoffset_bash(cmd,exe=False):
     
     if exe:
-        subprocess.call(cmd, shell=True)
+        if type(cmd) == list:
+            for this_cmd in cmd:
+                subprocess.call(this_cmd, shell=True)
+
+        else:
+            subprocess.call(cmd, shell=True)
     else:
         print(cmd)
 
@@ -326,8 +334,14 @@ class dense_offset():
     
                 print ('Velocity: ', Vs)
                 print ('az Time interval: ', burst.azimuthTimeInterval)
-                doc.azPixelSize=Vs*burst.azimuthTimeInterval
+                
+                # Need to do correction for footprint!!!
+                altitude = 693
+                radius = 6371 
+
+                doc.azPixelSize=Vs*burst.azimuthTimeInterval * radius / (radius + altitude)
                 print ('azPixelSize: ', doc.azPixelSize)
+                
                 doc.rngPixelSize=burst.rangePixelSize
                 print ('rngPixelSize: ', doc.rngPixelSize)
 
@@ -564,8 +578,10 @@ class dense_offset():
                 f.write('gpuid=' + str(doc.gpuid)+ '\n')
                 f.write('deramp=' + str(doc.deramp)+ '\n')
 
-                f.write('nwac=' + str(doc.nwac)+ '\n')
-                f.write('nwdc=' + str(doc.nwdc)+ '\n')
+                #f.write('nwac=' + str(doc.nwac)+ '\n')
+                #f.write('nwdc=' + str(doc.nwdc)+ '\n')
+                f.write('nwac=' + str(5)+ '\n')
+                f.write('nwdc=' + str(5)+ '\n')
 
                 f.write('outprefix='+str(offset_outprefix)+ '\n')
 
@@ -650,41 +666,51 @@ class dense_offset():
 
             doc = self.doc
 
+            # Find all the nan values.
             ind = np.where(np.isnan(data))
             num_nan = len(ind[0])
 
-            allvalues = np.zeros(shape=(num_nan,hole_size*hole_size))
+            allvalues = np.zeros(shape=(num_nan, hole_size*hole_size))
             holevalue = np.zeros(shape=(num_nan,))
 
+            # Find the neighboring values of each nan.
             count = 0
             for i in range(hole_size):
                 for j in range(hole_size):
                     #print(i,j)
-                    ind_i = ind[0] + i - hole_size//2
-                    ind_i[ind_i<0]=0
-                    ind_i[ind_i>=doc.numWinDown]=doc.numWinDown-1
 
+                    # Row
+                    ind_i = ind[0] + i - hole_size//2
+                    ind_i[ind_i<0] = 0
+                    ind_i[ind_i >= doc.numWinDown] = doc.numWinDown-1
+
+                    # Column
                     ind_j = ind[1] + j - hole_size//2
                     ind_j[ind_j<0]=0
-                    ind_j[ind_j>=doc.numWinAcross]=doc.numWinAcross-1
+                    ind_j[ind_j >= doc.numWinAcross] = doc.numWinAcross-1
 
                     allvalues[:,count] = data[(ind_i,ind_j)] 
+                    
                     count = count + 1
 
+            # Count the number of nans in the neighborhood.
             count_nans = np.isnan(allvalues).sum(axis=1)
+
+            # Enough supporting values in the neighborhood or not.
             ratio = 1/2
             invalid_points = count_nans > np.rint(hole_size * hole_size * ratio)
 
-            # fill in
+            # Find the median of neighboring values to fill in.
             holevalues = np.nanmedian(allvalues, axis=1)
     
-            # invalid points
+            # Set the not well supported values back to nan.
             holevalues[invalid_points] = np.nan
 
-            # median filter
+            # Fill in the nans.
             data = np.copy(data)
             data[ind] = holevalues
 
+            # Apply median filter again.
             kernel_size = (5,5)
             #data = ndimage.median_filter(input=data,size=kernel_size,mode='nearest')
             #data = signal.medfilt(data,kernel_size=kernel_size)
@@ -693,21 +719,103 @@ class dense_offset():
 
             return data
 
-        def _get_refer_mask(self,az,refer_az, rng, refer_rng, thrs=None):
+        def _get_refer_mask(self, az, refer_az, rng, refer_rng):
 
             doc = self.doc
 
-            # difference meter per day
-            dif_az_day = az - refer_az
-            dif_rng_day = rng - refer_rng
- 
-            # important
-            # threshold 1 meter per day
+            # Important:
+            # threshold:
+            # Choice 1:  hard-coded default: 1 m/d
+            # Choice 2: difference and ratio to the orignal value
 
-            if thrs is None:
-                thrs = 1
+            choice = 2
 
-            mask = np.logical_or(np.abs(dif_az_day)>thrs, np.abs(dif_rng_day)>thrs)
+            plot = False
+
+            if choice == 1:
+
+                thrs = 1 # m/d
+
+                # Difference m/d
+                
+                dif_az_day = az - refer_az
+                dif_rng_day = rng - refer_rng
+
+                mask = np.logical_or(np.abs(dif_az_day)>thrs, np.abs(dif_rng_day)>thrs)
+
+            elif choice == 2:
+
+                thrs_known = 1
+
+                thrs_known_az = 1
+                thrs_known_rng = 1
+
+                thrs_unknown = 2
+                
+                unknown_refer_inds = np.logical_and(refer_az == 0, refer_rng == 0)
+                known_refer_inds = np.invert(unknown_refer_inds)
+
+                dif_az_day = az - refer_az
+                dif_rng_day = rng - refer_rng
+
+                mask_referIsKnown = np.logical_and(np.logical_or(np.abs(dif_az_day)>thrs_known_az,  np.abs(dif_rng_day)>thrs_known_rng), known_refer_inds)
+                mask_referIsUnknown = np.logical_and(np.logical_or(np.abs(dif_az_day)>thrs_unknown,  np.abs(dif_rng_day)>thrs_unknown), unknown_refer_inds)
+               
+                # 2019.03.03 debug
+                # 1.
+                #mask = np.logical_or(mask_referIsKnown, mask_referIsUnknown)
+
+                # 2.
+                #mask = mask_referIsKnown
+
+                # 3.
+                #mask = np.logical_or(np.abs(dif_az_day)>thrs_known_az,  np.abs(dif_rng_day)>thrs_known_rng)
+
+                # 4.
+                mask = np.logical_and(np.logical_or(np.abs(dif_az_day)>thrs_known_az,  np.abs(dif_rng_day)>thrs_known_rng), known_refer_inds)
+
+                if plot:
+                    fig = plt.figure(1,figsize=(15,10))
+                    ax = fig.add_subplot(131)
+                    ax.imshow(unknown_refer_inds,cmap='coolwarm')
+                    ax.set_title('unknown')
+
+                    ax = fig.add_subplot(132)
+                    ax.imshow(known_refer_inds,cmap='coolwarm')
+                    ax.set_title('known')
+
+                    ax = fig.add_subplot(133)
+                    ax.imshow(mask,cmap='coolwarm')
+                    ax.set_title('final')
+                    fig.savefig('1.png')
+                    print(stop)
+
+            elif choice == 3:
+
+                # Difference m/d
+                dif_az_day = az - refer_az
+                dif_rng_day = rng - refer_rng
+
+                # Ratio of variation.
+                var_az_day = np.abs(az - refer_az) / np.max(np.abs(refer_az),0.001)
+                var_rng_day = np.abs(rng - refer_rng) / np.max(np.abs(refer_rng),0.001)
+    
+                # Difference.
+                dif_rng_day = rng - refer_rng
+                dif_rng_day = rng - refer_rng
+
+                # Control and moving points.
+                thrs = 0.05
+                ind_az = np.abs(refer_az)<thrs
+                ind_rng = np.abs(refer_rng)<thrs
+
+                control_points = np.logical_and(ind_az, ind_rng)
+
+                moving_points = np.invert(control_points)
+
+                # Mask control points by difference.
+                
+                control_points = np.logical_and(np.abs(dif_az_day)>thrs, np.abs(dif_rng_day)>thrs)
 
             return mask
 
@@ -715,11 +823,10 @@ class dense_offset():
 
             doc = self.doc
 
-            # Unmoved places, smaller than thr m/d.
-            thr = 0.05
-            
-            ind_az = np.abs(refer_az)<thr
-            ind_rng = np.abs(refer_rng)<thr
+            # Unmoved places, smaller than thrs m/d. Control points.
+            thrs = 0.05
+            ind_az = np.abs(refer_az)<thrs
+            ind_rng = np.abs(refer_rng)<thrs
 
             # Consider the points smaller than the threshold and validly obtained.
             ind_stationary = np.logical_and(np.logical_and(ind_az,ind_rng),np.invert(mask))
@@ -780,7 +887,95 @@ class dense_offset():
             #print(az_mis,rng_mis)
 
             return (az_mat_mis_pred,rng_mat_mis_pred)
- 
+
+        def _run_offset_filter_v2(self,data,data_snr,mask=None, label=None, refer=None):
+
+            doc = self.doc
+           
+            med1_data = np.copy(data)
+
+            # Step 0: mask out using snr
+            do_step_0 = False
+            
+            if do_step_0:
+                med1_data[data_snr<4] = np.nan
+
+            # Step 1:
+            do_step_1 = True
+            if do_step_1:
+                # Mask out where the reference is nan.
+                med1_data[np.isnan(refer)] = np.nan
+            
+                # Using the mask
+                if mask is not None: 
+                    med1_data[mask] = np.nan
+
+            # Step 2: normal median filter
+            do_step_2 = True
+            if do_step_2:
+                med2_data = np.copy(med1_data)
+                med2_kernel_size = (7,7)
+
+                # Median filters
+                #med2_data = ndimage.median_filter(input=med2_data,size=med2_kernel_size,mode='nearest') 
+                #med2_data = signal.medfilt(med1_data,kernel_size=med2_kernel_size)
+                med2_data = mdf(med1_data, kernel_size=med2_kernel_size)
+                #med2_data = cv2.medianBlur(med1_data,med2_kernel_size[0])
+
+                #med2_data[med2_data == np.nan] = 1000
+                #med2_data = mdf(med1_data, kernel_size=med2_kernel_size)
+                #med2_data[med2_data == 1000] = np.nan
+
+            else:
+                med2_data = np.copy(med1_data)
+
+            # Step 3: iteratively fill in small holes, fill in + median filter
+            do_step_3 = False
+
+            if do_step_3:
+                iteration = 3
+                hole_size = 7
+                med3_data = np.copy(med2_data)
+                for i in range(iteration):
+                    med3_data = self.fill_in_holes(data=med3_data, hole_size = hole_size)
+                    #med3_data = self.fill(med3_data)
+
+            else:
+                med3_data = np.copy(med2_data)
+
+
+            ## Step 4: set neighboring values of nans as nan.
+            do_step_4 = True
+            if do_step_4:
+    
+                med4_kernel_size = 7
+                med4_data = np.copy(med3_data)
+                ind = np.where(np.isnan(med4_data))
+    
+                for i in range(med4_kernel_size):
+                    for j in range(med4_kernel_size):
+                        ind_i = ind[0] + i - med4_kernel_size//2
+                        ind_i[ind_i < 0] = 0
+                        ind_i[ind_i >= doc.numWinDown]=doc.numWinDown-1
+    
+                        ind_j = ind[1] + j - med4_kernel_size//2
+                        ind_j[ind_j < 0] = 0
+                        ind_j[ind_j >= doc.numWinAcross]=doc.numWinAcross-1
+    
+                        med4_data[(ind_i,ind_j)] = np.nan
+            else:
+                med4_data = np.copy(med3_data)
+
+            # Step 5: remove the values on the margin, if interpolation is performed.
+            if do_step_3:
+                bb = (iteration + 1) * (hole_size // 2)
+                med4_data[:iteration,:] = np.nan
+                med4_data[-iteration:,:] = np.nan
+                med4_data[:,:iteration] = np.nan
+                med4_data[:,-iteration:] = np.nan
+
+            return med4_data
+
         def _run_offset_filter(self,data,data_snr,mask=None, label=None, refer=None):
 
             doc = self.doc
@@ -788,56 +983,79 @@ class dense_offset():
             med1_data = np.copy(data)
 
             # Step 0: mask out using snr
-            med1_data[data_snr<4] = np.nan
+            do_step_0 = True
+            
+            if do_step_0:
+                med1_data[data_snr<4] = np.nan
 
-            # Step 1: mask out where the reference is nan
-            med1_data[np.isnan(refer)] = np.nan
-
-            if mask is not None: 
-                med1_data[mask] = np.nan
+            # Step 1:
+            do_step_1 = True
+            if do_step_1:
+                # Mask out where the reference is nan.
+                med1_data[np.isnan(refer)] = np.nan
+            
+                # Using the mask
+                if mask is not None: 
+                    med1_data[mask] = np.nan
 
             # Step 2: normal median filter
-            med2_data = np.copy(data)
-            med2_kernel_size = (7,7)
+            do_step_2 = True
+            if do_step_2:
+                med2_data = np.copy(data)
+                med2_kernel_size = (7,7)
 
-            # median filters
-            #med2_data = ndimage.median_filter(input=med2_data,size=med2_kernel_size,mode='nearest') 
-            #med2_data = signal.medfilt(med1_data,kernel_size=med2_kernel_size)
-            med2_data = mdf(med1_data,kernel_size=med2_kernel_size)
-            #med2_data = cv2.medianBlur(med1_data,med2_kernel_size[0])
+                # Median filters
+                #med2_data = ndimage.median_filter(input=med2_data,size=med2_kernel_size,mode='nearest') 
+                #med2_data = signal.medfilt(med1_data,kernel_size=med2_kernel_size)
+                med2_data = mdf(med1_data, kernel_size=med2_kernel_size)
+                #med2_data = cv2.medianBlur(med1_data,med2_kernel_size[0])
+            else:
+                med2_data = np.copy(med1_data)
 
-            # step 3: iteratively fill in small holes, fill in + median filter
-            iteration = 3
-            hole_size = 7
-            med3_data = np.copy(med2_data)
-            for i in range(iteration):
-                med3_data = self.fill_in_holes(data=med3_data, hole_size = hole_size)
-                #med3_data = self.fill(med3_data)
+            # Step 3: iteratively fill in small holes, fill in + median filter
+            do_step_3 = True
 
-            ## step 4: set neighboring values to nans to be nan
-            med4_kernel_size = 7
-            med4_data = np.copy(med3_data)
-            ind = np.where(np.isnan(med4_data))
+            if do_step_3:
+                iteration = 3
+                hole_size = 7
+                med3_data = np.copy(med2_data)
+                for i in range(iteration):
+                    med3_data = self.fill_in_holes(data=med3_data, hole_size = hole_size)
+                    #med3_data = self.fill(med3_data)
 
-            for i in range(med4_kernel_size):
-                for j in range(med4_kernel_size):
-                    ind_i = ind[0] + i - med4_kernel_size//2
-                    ind_i[ind_i<0]=0
-                    ind_i[ind_i>=doc.numWinDown]=doc.numWinDown-1
+            else:
+                med3_data = np.copy(med2_data)
 
-                    ind_j = ind[1] + j - med4_kernel_size//2
-                    ind_j[ind_j<0]=0
-                    ind_j[ind_j>=doc.numWinAcross]=doc.numWinAcross-1
 
-                    med4_data[(ind_i,ind_j)] = np.nan
+            ## Step 4: set neighboring values of nans as nan.
+            do_step_4 = True
+            if do_step_4:
+    
+                med4_kernel_size = 7
+                med4_data = np.copy(med3_data)
+                ind = np.where(np.isnan(med4_data))
+    
+                for i in range(med4_kernel_size):
+                    for j in range(med4_kernel_size):
+                        ind_i = ind[0] + i - med4_kernel_size//2
+                        ind_i[ind_i < 0] = 0
+                        ind_i[ind_i >= doc.numWinDown]=doc.numWinDown-1
+    
+                        ind_j = ind[1] + j - med4_kernel_size//2
+                        ind_j[ind_j < 0] = 0
+                        ind_j[ind_j >= doc.numWinAcross]=doc.numWinAcross-1
+    
+                        med4_data[(ind_i,ind_j)] = np.nan
+            else:
+                med4_data = np.copy(med3_data)
 
-            # finalize, remove the boundary
-            #med4_data[np.isnan(refer)] = np.nan
-            bb = (iteration + 1) * (hole_size // 2)
-            med4_data[:iteration,:] = np.nan
-            med4_data[-iteration:,:] = np.nan
-            med4_data[:,:iteration] = np.nan
-            med4_data[:,-iteration:] = np.nan
+            # Step 5: remove the values on the margin, if interpolation is performed.
+            if do_step_3:
+                bb = (iteration + 1) * (hole_size // 2)
+                med4_data[:iteration,:] = np.nan
+                med4_data[-iteration:,:] = np.nan
+                med4_data[:,:iteration] = np.nan
+                med4_data[:,-iteration:] = np.nan
 
             return med4_data
 
@@ -861,25 +1079,28 @@ class dense_offset():
             #print(vmin10, vmax10)
             #print(stop)
 
-            self.fig = plt.figure(1, figsize=(18,9))
+            self.fig = plt.figure(1, figsize=(18,6))
+
+            frac = 0.07
+            padbar = 0.1
 
             ax = self.fig.add_subplot(161)
-            ax.set_title('predicted azimuth offset') 
+            ax.set_title('Predicted azimuth offset') 
             im = ax.imshow(azOff_re, cmap=cm.jet, vmax=vmax10, vmin=vmin10)
-            self.fig.colorbar(im,fraction=0.07, orientation='horizontal',ticks=np.linspace(vmin10,vmax10,num=5),label='meter')
+            self.fig.colorbar(im,fraction=frac, pad=padbar, orientation='horizontal',ticks=np.arange(np.round(vmin10),np.round(vmax10)+1,1),label='m')
             #self.fig.colorbar(im,fraction=0.07, orientation='horizontal',label='meter')
 
 
 
             ax = self.fig.add_subplot(162)
-            ax.set_title('raw azimuth offset') 
+            ax.set_title('Raw azimuth offset') 
             im = ax.imshow(azOff_cmp, cmap=cm.jet, vmax=vmax10, vmin=vmin10)
-            self.fig.colorbar(im,fraction=0.07, orientation='horizontal',ticks=np.linspace(vmin10,vmax10,num=5),label='meter')
+            self.fig.colorbar(im,fraction=frac, pad=padbar, orientation='horizontal',ticks=np.arange(np.round(vmin10),np.round(vmax10)+1,1),label='m')
 
             ax = self.fig.add_subplot(163)
-            ax.set_title('filtered azimuth offset')
+            ax.set_title('Filtered azimuth offset')
             im = ax.imshow(azOff, cmap=cm.jet, vmax=vmax10, vmin=vmin10)
-            self.fig.colorbar(im,fraction=0.07, orientation='horizontal',ticks=np.linspace(vmin10,vmax10,num=5),label='meter')
+            self.fig.colorbar(im,fraction=frac, pad=padbar, orientation='horizontal',ticks=np.arange(np.round(vmin10),np.round(vmax10)+1,1),label='m')
 
             # Plot range offset.
             vmin = np.nanmin(rngOff_re)
@@ -889,30 +1110,30 @@ class dense_offset():
             vmax10 = np.ceil(vmax*10)/10+pad
 
             ax = self.fig.add_subplot(164)
-            ax.set_title('predicted range offset')
+            ax.set_title('Predicted range offset')
             im = ax.imshow(rngOff_re, cmap=cm.jet, vmax=vmax10, vmin=vmin10)
-            self.fig.colorbar(im,fraction=0.07, orientation='horizontal',ticks=np.linspace(vmin10,vmax10,num=5),label='meter')
+            self.fig.colorbar(im,fraction=frac, pad=padbar, orientation='horizontal',ticks=np.arange(np.round(vmin10),np.round(vmax10)+1,1),label='m')
 
             ax = self.fig.add_subplot(165)
-            ax.set_title('raw range offset') 
+            ax.set_title('Raw range offset') 
             im = ax.imshow(rngOff_cmp, cmap=cm.jet, vmax=vmax10, vmin=vmin10)
-            self.fig.colorbar(im,fraction=0.07, orientation='horizontal',ticks=np.linspace(vmin10,vmax10,num=5),label='meter')
+            self.fig.colorbar(im,fraction=frac, pad=padbar, orientation='horizontal',ticks=np.arange(np.round(vmin10),np.round(vmax10)+1,1),label='m')
 
             ax = self.fig.add_subplot(166)
-            ax.set_title('filtered range offset')          
+            ax.set_title('Filtered range offset')          
             im = ax.imshow(rngOff, cmap=cm.jet, vmax=vmax10, vmin=vmin10)
-            self.fig.colorbar(im,fraction=0.07, orientation='horizontal',ticks=np.linspace(vmin10,vmax10,num=5),label='meter')
+            self.fig.colorbar(im,fraction=frac, pad=padbar, orientation='horizontal',ticks=np.arange(np.round(vmin10),np.round(vmax10)+1,1),label='m')
 
             # Finalize.
-            self.fig.suptitle(title)
+            #self.fig.suptitle(title)
             #plt.show()
             
             figdir = os.path.join(os.path.join(self.workdir,'figs', self.trackname,'radar'))
             if not os.path.exists(figdir):
                 os.makedirs(figdir)
 
-            self.fig.savefig(os.path.join(figdir,'offset_' + title + ".pdf"), format='pdf')
-            self.fig.savefig(os.path.join(figdir,'offset_' + title + ".png"), format='png')
+            self.fig.savefig(os.path.join(figdir,'offset_' + title + ".pdf"), format='pdf',bbox_inches='tight')
+            self.fig.savefig(os.path.join(figdir,'offset_' + title + ".png"), format='png',bbox_inches='tight')
 
             return 0
 
@@ -920,25 +1141,28 @@ class dense_offset():
 
             doc = self.doc
 
-            redo = 1
-
-            os.system('rm -r ' + doc.offset_folder + '/filt*' + str(doc.runid)+'*')
-
-            azOffsetName = os.path.join(doc.offset_folder, 'filtAzimuth_' + str(doc.runid) +'.off')
-            nbands = 1
-            bandType = 6
-
             # Convert back to pixels in real interim days.
             azOffset_filtered_ori = azOffset_filtered / doc.azPixelSize * doc.interim
             rngOffset_filtered_ori = rngOffset_filtered / doc.rngPixelSize * doc.interim
  
+            redo = 1
+
+            # Remove the existed ones.
+            os.system('rm -r ' + doc.offset_folder + '/filt*' + str(doc.runid)+'*' + version + '*')
+
+            ######################
+            # Save azimuth offset.
+            azOffsetName = os.path.join(doc.offset_folder, 'filtAzimuth_' + str(doc.runid) + version + '.off')
+
+            nbands = 1
+            bandType = 6
+
             if not os.path.exists(azOffsetName) or redo == 1:
                
                 driver = gdal.GetDriverByName( 'ENVI' )
                 dst_ds = driver.Create(azOffsetName, azOffset_filtered_ori.shape[1], azOffset_filtered_ori.shape[0], nbands, bandType )
                 dst_ds.GetRasterBand(1).WriteArray( azOffset_filtered_ori, 0 ,0 )
                 dst_ds = None
-
 
                 outImg = isceobj.createImage()
                 outImg.setDataType('Float')
@@ -951,9 +1175,10 @@ class dense_offset():
                 outImg.renderHdr()
                 outImg.renderVRT()
            
-            ################ 
+            ####################
+            # Save range offset.
+            rngOffsetName = os.path.join(doc.offset_folder, 'filtRange_' + str(doc.runid) + version + '.off')
 
-            rngOffsetName = os.path.join(doc.offset_folder, 'filtRange_' + str(doc.runid) + '.off')
             nbands = 1
             bandType = 6
 
@@ -1012,23 +1237,30 @@ class dense_offset():
             azOffset = azOffset * doc.azPixelSize / doc.interim
             rngOffset = rngOffset * doc.rngPixelSize / doc.interim
 
-            # Generate first mask for stagnent regions, used for deriving mis-coreg.
-            mask = self._get_refer_mask(azOffset, refer_azOffset, rngOffset, refer_rngOffset, thrs=1)
+            # Generate first mask to remove bad values, used for deriving mis-coreg.
+            mask = self._get_refer_mask(azOffset, refer_azOffset, rngOffset, refer_rngOffset)
 
             # Get the mis-coregistration.
             az_mis, rng_mis = self._get_misCoreg(azOffset, refer_azOffset, rngOffset, refer_rngOffset, mask)
-            #print(az_mis, rng_mis)
+            #print('miscoregis: ', az_mis, rng_mis)
 
             # Mis-coregistration correction.
-            azOffset = azOffset - az_mis
-            rngOffset = rngOffset - rng_mis
+            # 2019.03.04
+            # close the offset correction.
+            #azOffset = azOffset - az_mis
+            #rngOffset = rngOffset - rng_mis
 
             # Generate second mask, used for filtering.
-            mask = self._get_refer_mask(azOffset, refer_azOffset, rngOffset, refer_rngOffset, thrs=1)
+            mask = self._get_refer_mask(azOffset, refer_azOffset, rngOffset, refer_rngOffset)
 
             # Filtering.
-            azOffset_filtered = self._run_offset_filter(azOffset, data_snr, mask=mask, label='az',refer=refer_azOffset)
-            rngOffset_filtered = self._run_offset_filter(rngOffset, data_snr, mask=mask, label='rng',refer=refer_rngOffset)
+            #azOffset_filtered = self._run_offset_filter(azOffset, data_snr, mask=mask, label='az',refer=refer_azOffset)
+            
+            #rngOffset_filtered = self._run_offset_filter(rngOffset, data_snr, mask=mask, label='rng',refer=refer_rngOffset)
+
+            azOffset_filtered = self._run_offset_filter_v2(azOffset, data_snr, mask=mask, label='az',refer=refer_azOffset)
+            
+            rngOffset_filtered = self._run_offset_filter_v2(rngOffset, data_snr, mask=mask, label='rng',refer=refer_rngOffset)
 
             # Cross nan validation.
             nan_ind = np.logical_or(np.isnan(azOffset_filtered), np.isnan(rngOffset_filtered))
@@ -1049,7 +1281,10 @@ class dense_offset():
 
             doc = self.doc
 
+            count = 0
             for offsetfield in self.offsetfields:
+
+                count = count + 1
     
                 date1str = offsetfield[0]
                 date2str = offsetfield[1]
@@ -1075,11 +1310,18 @@ class dense_offset():
                 title = date1str+'_'+date2str
 
                 # check if we should do it
+
                 exist = False
 
                 if exist == False:
                     print('Should work on', title)
+                                            
+                                            # ad hoc
+                    #if self.exe == True or title == '20170613_20170625':
+                    #if self.exe == True or title == '20171030_20171111':
+                    #if self.exe == True or count == 1:
                     if self.exe == True:
+
                         print('work on it!')
                         func = self._offset_filter
                         p = Process(target=func, args=(offsetfile,snrfile,title,))
@@ -1130,8 +1372,10 @@ class dense_offset():
                 #os.system('rm ' + self.trackfolder + '/' + self.geometry + '/temp*')
 
                 # Generate new files.
-                os.system(cmd1)
-                os.system(cmd2)
+                #os.system(cmd1)
+                #os.system(cmd2)
+
+                pass
 
             # generate the vectors in enu coordinates
 
@@ -1154,55 +1398,50 @@ class dense_offset():
 
                 # geocode offsetfields
 
-                azOffset = os.path.join(doc.offset_folder, 'filtAzimuth_' + str(doc.runid) + '.off')
-                rngOffset = os.path.join(doc.offset_folder, 'filtRange_' + str(doc.runid) + '.off')
+                azOffset = os.path.join(doc.offset_folder, 'filtAzimuth_' + str(doc.runid) + version + '.off')
+                rngOffset = os.path.join(doc.offset_folder, 'filtRange_' + str(doc.runid) + version + '.off')
 
                 cmd1 = 'geocodeGdal.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + azOffset
                 cmd2 = 'geocodeGdal.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + rngOffset
 
                 # Parallel computing is problematic.
 
-                ## check if we should do it
-                #exist = False
-                #if exist == False:
-                #    print(cmd1)
-                #    print(cmd2)
-
-                #    if self.exe:
-                #        os.system('rm ' + doc.offset_folder + '/gc*')
-                #        os.system('rm ' + doc.offset_folder + '/*temp*')
-                #    
-                #        func =  globals()['run_denseoffset_bash']
-                #        p = Process(target=func, args=(cmd1,self.exe))
-                #        self.jobs.append(p)
-                #        p.start()
- 
-                #        p = Process(target=func, args=(cmd2,self.exe))
-                #        self.jobs.append(p)
-                #        p.start()
-                #        
-                #        self.doc_count = self.doc_count + 2
-
-                #        # nprocess controller
-                #        if self.doc_count >= self.nproc:
-                #            for ip in range(self.nproc):
-                #                print(ip)
-                #                self.jobs[ip].join() #wait here
-
-                #            self.doc_count = 0
-                #            self.jobs = []
-
-                # Non-parallel computing.
+                # check if we should do it
                 if self.exe:
-                    # Delete the old files.
-                    os.system('rm ' + doc.offset_folder + '/gc*')
+                    os.system('rm ' + doc.offset_folder + '/gc*' + version +'*')
                     os.system('rm ' + doc.offset_folder + '/*temp*')
+                
+                    func =  globals()['run_denseoffset_bash']
+                    p = Process(target=func, args=([cmd1,cmd2],self.exe))
+                    self.jobs.append(p)
+                    p.start()
  
-                    os.system(cmd1)
-                    os.system(cmd2)
+                    self.doc_count = self.doc_count + 1
+
+                    # nprocess controller
+                    if self.doc_count >= self.nproc:
+                        for ip in range(self.nproc):
+                            print(ip)
+                            self.jobs[ip].join() #wait here
+
+                        self.doc_count = 0
+                        self.jobs = []
+
                 else:
                     print(cmd1)
                     print(cmd2)
+
+                # Non-parallel computing.
+                #if self.exe:
+                #    # Delete the old files.
+                #    os.system('rm ' + doc.offset_folder + '/gc*')
+                #    os.system('rm ' + doc.offset_folder + '/*temp*')
+ 
+                #    os.system(cmd1)
+                #    os.system(cmd2)
+                #else:
+                #    print(cmd1)
+                #    print(cmd2)
 
 
             return 0
@@ -1549,7 +1788,8 @@ class dense_offset():
 
             # Look at the offsetfields
             # Load in the los file.
-            geo_losFile = os.path.join(self.trackfolder,self.geometry,'gc_los_offset_' + str(doc.runid) + '.rdr')
+            geo_losFile = os.path.join(self.trackfolder,self.geometry,'gc_los_offset_' + str(doc.runid)+'.rdr')
+            
             print(geo_losFile)
             ds = gdal.Open(geo_losFile)
             losField = ds.GetRasterBand(1).ReadAsArray()
@@ -1575,11 +1815,17 @@ class dense_offset():
 
                 doc.offset_folder = os.path.join(self.trackfolder,self.offsetFolder,date1str+'_'+date2str)
 
-                geo_rngOffsetFile = os.path.join(doc.offset_folder,'gc_filtRange_' + str(doc.runid) + '.off')
-                geo_azOffsetFile = os.path.join(doc.offset_folder,'gc_filtAzimuth_' + str(doc.runid) + '.off')
+                geo_rngOffsetFile = os.path.join(doc.offset_folder,'gc_filtRange_' + str(doc.runid) + version + '.off')
+                geo_azOffsetFile = os.path.join(doc.offset_folder,'gc_filtAzimuth_' + str(doc.runid) + version + '.off')
                 #print(geo_rngOffsetFile)
 
                 # Read in offsetfield.
+                # Make sure the offsetfield exist.
+
+                if not os.path.exists(geo_rngOffsetFile) or not os.path.exists(geo_azOffsetFile):
+                    # Next one
+                    continue
+                
                 ds = gdal.Open(geo_rngOffsetFile)
                 rngOffsetField = ds.GetRasterBand(1).ReadAsArray()
                 
@@ -1602,7 +1848,6 @@ class dense_offset():
                         azOffset = azOffsetField[ind_y, ind_x]
                         los = losField[ind_y, ind_x]
 
-
                         # The value is valid.
                         if (not np.isnan(rngOffset) and not np.isnan(rngOffset) and los > 5):
 
@@ -1624,7 +1869,6 @@ class dense_offset():
             #print(offsets_set[point_set[0]])
 
             return (pairs_set, offsets_set)
-
 
         def extract_offset_series(self, point, dates):
 
@@ -1660,9 +1904,13 @@ class dense_offset():
 
                 doc.offset_folder = os.path.join(self.trackfolder,self.offsetFolder,date1str+'_'+date2str)
 
-                geo_rngOffsetFile = os.path.join(doc.offset_folder,'gc_filtRange_' + str(doc.runid) + '.off')
-                geo_azOffsetFile = os.path.join(doc.offset_folder,'gc_filtAzimuth_' + str(doc.runid) + '.off')
+                geo_rngOffsetFile = os.path.join(doc.offset_folder,'gc_filtRange_' + str(doc.runid) + version + '.off')
+                geo_azOffsetFile = os.path.join(doc.offset_folder,'gc_filtAzimuth_' + str(doc.runid) + version + '.off')
                 #print(geo_rngOffsetFile)
+
+                if not os.path.exists(geo_rngOffsetFile) or not os.path.exists(geo_azOffsetFile):
+                    # Next one
+                    continue
 
                 ds = gdal.Open(geo_rngOffsetFile)
                 rngOffsetField = ds.GetRasterBand(1).ReadAsArray()
@@ -1677,6 +1925,7 @@ class dense_offset():
                     rngOffset = rngOffsetField[ind_y, ind_x]
                     los = losField[ind_y, ind_x]
 
+                    # los > 5 to remove the invalid values on the margin.
                     if (not np.isnan(rngOffset) and not np.isnan(rngOffset) and los > 5):
 
                         # Convert offset from pixel to meter.

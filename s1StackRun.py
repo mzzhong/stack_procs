@@ -41,14 +41,14 @@ nprocess = {}
 
 nprocess['init'] = 1
 nprocess['create'] = 1
-nprocess['unpack_slc_topo_master'] = 16
+nprocess['unpack_slc_topo_master'] = 8
 nprocess['average_baseline'] = 16
-nprocess['geo2rdr_resample'] = 1
+nprocess['geo2rdr_resample'] = 2
 nprocess['extract_stack_valid_region'] = 1
-nprocess['merge_master_slave_slc'] = 1
+nprocess['merge_master_slave_slc'] = 4
 nprocess['dense_offsets'] = 6
 nprocess['postprocess'] = {'geometry':1, 'maskandfilter': 12}
-nprocess['geocode'] = 1
+nprocess['geocode'] = 8
 nprocess['show_doc'] = 1
 nprocess['plot_geocoded'] = 1
 
@@ -389,19 +389,34 @@ def main(iargs=None):
                     cmd_file = os.path.join(name,'run_files','run_'+str(step-1)+'_'+steplist[step])
                     f = open(cmd_file)
                     lines = f.readlines()
+
                     for ii in range(len(lines)):
+                        print('===========================')
 
-                        # checking:
+                        cmd = lines[ii]
 
-                        (exist, start, end) = check_exist(step,lines[ii])
+
+                        # checking if results exist
+                        (exist, start, end) = check_exist(step,cmd)
 
                         if exist:
-                            print('skip ',lines[ii])
+                            print('exists, skip ',cmd)
                             continue
-                        
-                        print('run ', lines[ii])
+
+                        # If running with geo2rdr, check the data
+                        if steplist[step] == 'geo2rdr_resample':
+                            datestr = cmd.split('_')[-1][:-1]
+                            print(datestr)
+                            this_date = datetime.datetime.strptime(datestr, fmt)
+
+                            if this_date < s_date or this_date>e_date:
+                                print('out of the time window')
+                                print('skip ',cmd)
+                                continue
  
-                        p = Process(target=run_cmd, args=(lines[ii],start,end,inps.exe))
+                        print('run ', cmd)
+ 
+                        p = Process(target=run_cmd, args=(cmd,start,end,inps.exe))
                         jobs.append(p)
                         p.start()
                         count = count + 1
