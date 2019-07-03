@@ -28,7 +28,7 @@ from medianfilter2d import medianfilter2d as mdf
 
 import cv2
 
-
+# Must be set
 version='_v9'
  
 def run_denseoffset_bash(cmd,exe=False):
@@ -360,7 +360,7 @@ class dense_offset():
 
             doc = self.doc
             
-            objGrossOff = grossOffsets(figpath = os.path.join(self.trackfolder, self.offsetFolder))
+            objGrossOff = grossOffsets(figpath = os.path.join(self.trackfolder, self.offsetFolder), runid=doc.runid)
 
             mode = 'exterior'
             
@@ -453,13 +453,15 @@ class dense_offset():
 
             # Collect dates
             slcs = glob.glob(self.trackfolder + '/' + self.slcs_folder + '/2*')
-            intdates = [int(slc.split('/')[-1]) for slc in slcs]
+            #for slc in slcs:
+            #    if slc.split('/')[-1]=='20171119_backup':
+            #        print(slc)
+            #        raise Exception('Wrong Name')
+            intdates = [int(slc.split('/')[-1]) for slc in slcs if len(slc.split('/')[-1]) == 8 ]
             
             intdates.sort() 
             self.obdates =[ date(int(str(intdate)[0:4]), int(str(intdate)[4:6]), int(str(intdate)[6:8])) for intdate in intdates]
             #print(self.obdates)
-
-
 
             # Create the all possible offsetfields.
             self.offsetfields = []
@@ -474,7 +476,6 @@ class dense_offset():
 
             #print(self.offsetfields)
 
-            
             ## offsetfield object initiation.
             # Load the existed result, if it exist. 
             # Point to the offset pickle file.
@@ -1246,7 +1247,9 @@ class dense_offset():
 
             # Mis-coregistration correction.
             # 2019.03.04
-            # close the offset correction.
+            # Close the offset correction, because it is unnecessary for S1ab
+            # Need to open up this for CSK
+
             #azOffset = azOffset - az_mis
             #rngOffset = rngOffset - rng_mis
 

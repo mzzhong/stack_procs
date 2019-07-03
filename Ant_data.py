@@ -235,7 +235,7 @@ class Ant_data():
         npz_filebasename = 'AntVelo_v2.npz'
         #npz_filebasename_error = 'AntVelo_v2_error.npz'
 
-        redo = 1
+        redo = 0
         if os.path.isfile(velo_dir + '/' + npz_filebasename) and redo == 0:
 
             print('Loading v2...') 
@@ -274,7 +274,6 @@ class Ant_data():
             vy = fh.variables['VY'][:].data
 
             print(vel_lon)
-            print(stop)
 
             plt.figure(1, figsize=(10,10))
             plt.imshow(np.abs(vel_lon), vmin=0, vmax=1000, cmap='coolwarm')
@@ -350,7 +349,7 @@ class Ant_data():
 
                     lat = vel_lat[row, col]
                     
-                    if lon>-95 and lon<-65 and lat>-82 and lat<-72:
+                    if lon>-95 and lon<-60 and lat>-82 and lat<-72:
                         #vxx = vx[row, col]
                         #vyy = vy[row, col]
                         #z = np.sqrt(vxx**2 + vyy**2)

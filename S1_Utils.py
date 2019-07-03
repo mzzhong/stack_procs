@@ -6,13 +6,18 @@ from datetime import date
 class S1_Utils():
     def __init__(self):
 
-        tracks = [37, 52, 169, 65, 7]
+        tracks = [37, 52, 169, 65, 7, 50, 64, 49]
         self.numberOfFrames = {}
+
         self.numberOfFrames[37] = 5
         self.numberOfFrames[52] = 5
         self.numberOfFrames[169] = 4
         self.numberOfFrames[65] = 4
         self.numberOfFrames[7] = 5
+
+        self.numberOfFrames[50] = 4
+        self.numberOfFrames[64] = 4
+        self.numberOfFrames[49] = 3 
 
         # from date to track
         ref_track={}  
@@ -21,6 +26,10 @@ class S1_Utils():
         ref_track[date(2018,2,22)] = [169]
         ref_track[date(2018,2,21)] = [65]
         ref_track[date(2018,2,11)] = [7]
+
+        ref_track[date(2015,6,6)] = [50]
+        ref_track[date(2019,5,29)] = [64]
+        ref_track[date(2019,5,28)] = [49]
 
         self.ref_track = ref_track
 
@@ -31,6 +40,8 @@ class S1_Utils():
                 if track in crsp_tracks:
                     ref_date[track] = day
         self.ref_date = ref_date
+
+        print(ref_date)
 
         self.startdate = date(2014,5,1)
         self.enddate = date(2024,5,1)

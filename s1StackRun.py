@@ -57,6 +57,8 @@ def createParser():
     parser = argparse.ArgumentParser( description='control the running of the stacks step list: [init(0), create(1), unpack_slc_topo_master(2), average_baseline(3), geo2rdr_resample(4), extract_stack_valid_region(5), merge_master_slave_slc(6), dense_offsets(7), postprocess(8), geocode(9), show_doc(10), plot_geocoded(11)]')
     
     parser.add_argument('-t', '--tracks', dest='tracks',type=str,help='tracks to process(comma separated)',default=None)
+    parser.add_argument('-p', '--pairs', dest='pairs',type=str,help='pairs to process(comma separated)',default=None)
+
     parser.add_argument('-first', dest='first',type=str,help='the first step',default=None)
     parser.add_argument('-last', dest='last',type=str,help='the last step',default=None)
     parser.add_argument('-do', dest='do',type=str,help='do this step',default=None)
@@ -260,11 +262,14 @@ def main(iargs=None):
 
     inps = cmdLineParse(iargs)
 
-    # prepare the csk routine
-    csk = CSK_Utils()
-
     # the tracks to process
-    tracks = inps.tracks.split(',')
+    if inps.tracks is not None:
+        tracks = inps.tracks.split(',')
+
+    if inps.pairs is not None:
+        pairs = inps.pairs.split(',')
+    else:
+        pairs = None
 
     # the steps
     if ( inps.first == None and inps.last == None ) and inps.do == None:
@@ -304,8 +309,9 @@ def main(iargs=None):
     jobs = []
 
     for step in range(first,last+1):
-
         stepname = steplist[step]
+
+        print("step: ",stepname)
 
         if stepname == 'dense_offsets':
 
@@ -328,10 +334,16 @@ def main(iargs=None):
             offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['plot_geocoded'],exe = inps.exe)
 
 
-        # loop through the tracks 
+        # loop through the targes
         for i in tracks:
+            name='track_' + str(i)
 
-                name='track_' + str(i)
+            if pairs:
+                name = name+'_pairs' +'/' + pairs[0]
+                print(name)
+ 
+            else:
+
                 print(name)
 
                 # in case the folder doesn't exist
