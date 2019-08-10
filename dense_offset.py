@@ -30,6 +30,8 @@ import cv2
 
 # Must be set
 version='_v9'
+
+nanvalue=-999
  
 def run_denseoffset_bash(cmd,exe=False):
     
@@ -44,9 +46,11 @@ def run_denseoffset_bash(cmd,exe=False):
         print(cmd)
 
 class dense_offset_config():
-    def __init__(self,ww=128, wh=128, sw=20, sh=20, kw=64, kh=64, nwac=5, nwdc=5):
+    def __init__(self,ww=128, wh=128, sw=20, sh=20, kw=64, kh=64, nwac=5, nwdc=5, oversample=32):
         
-        self.outprefix = 'cuampcor'
+        self.outprefix = '_'.join(['cuampcor', 'ww'+str(ww), 'wh'+str(wh), 'os'+str(oversample)])
+        print(self.outprefix)
+
         self.runid = 1
         self.ww = ww
         self.wh = wh
@@ -54,6 +58,8 @@ class dense_offset_config():
         self.sh = sh
         self.kw = kw
         self.kh = kh
+
+        self.oversample = oversample
 
         self.mm= max(max(self.sh,self.sw)*2, 50)
         self.gpuid = 0
@@ -124,6 +130,34 @@ class dense_offset():
                 self.burst_xml = 'master/IW1.xml'
 
 
+            elif stack == 'tops_RC':
+                self.slcs_folder = 'merged/SLC'
+                self.master_folder = self.slcs_folder
+                self.slave_folder = self.slcs_folder
+
+                self.master_suffix = '.slc.full'
+                self.slave_suffix = '.slc.full'
+
+                self.maxday = 16
+
+                # create the simplest doc object
+                ww = 64
+                wh = 16
+                oversample = 128
+                self.doc = dense_offset_config(ww=ww, wh=wh, sw=20, sh=20, kw=ww//2, kh=wh//2, oversample=oversample)
+
+                self.geometry = 'merged/geom_master'
+                self.latname = 'lat.rdr.full'
+                self.lonname = 'lon.rdr.full'
+                self.losname = 'los.rdr.full'
+                self.hgtname = 'hgt.rdr.full'
+
+                self.geometry_suffix = '.rdr.full'
+
+                # used to generate pixel size
+                self.burst_xml = 'master/IW1.xml'
+
+
         def get_offset_geometry(self):
 
             doc = self.doc
@@ -168,8 +202,11 @@ class dense_offset():
             inc = np.zeros(shape=(numWinDown,numWinAcross),dtype=np.float32)
             azi = np.zeros(shape=(numWinDown,numWinAcross),dtype=np.float32)
 
-            centerOffsetHgt = doc.sh + doc.kh//2-1
-            centerOffsetWidth = doc.sw + doc.kw//2-1
+            #centerOffsetHgt = doc.sh + doc.kh//2-1
+            #centerOffsetWidth = doc.sw + doc.kw//2-1
+
+            centerOffsetHgt = doc.sh + doc.wh//2-1
+            centerOffsetWidth = doc.sw + doc.ww//2-1
 
             print(numWinDown)
             print(numWinAcross)
@@ -185,8 +222,10 @@ class dense_offset():
                 off = down * doc.rngsize
                 off2 = down * doc.rngsize * 2 # BIL
     
-                start = doc.mm + centerOffsetWidth
-                end = doc.mm + doc.kw * numWinAcross
+                #start = doc.mm + centerOffsetWidth
+                #end = doc.mm + doc.kw * numWinAcross
+
+                range_indices = doc.mm + np.arange(numWinAcross) * doc.kw + centerOffsetWidth
     
                 latline = np.memmap(filename=latfile,dtype='float64',offset=8*off,shape=(doc.rngsize))
                 lonline = np.memmap(filename=lonfile,dtype='float64',offset=8*off,shape=(doc.rngsize))
@@ -194,14 +233,20 @@ class dense_offset():
                  
                 losline = np.memmap(filename=losfile,dtype='float32',offset=4*off2,shape=(doc.rngsize*2))
 
-                lat[iwin,:] = latline[start:end:doc.kw]
-                lon[iwin,:] = lonline[start:end:doc.kw]
-                hgt[iwin,:] = hgtline[start:end:doc.kw]
-               
+                #lat[iwin,:] = latline[start:end:doc.kw]
+                #lon[iwin,:] = lonline[start:end:doc.kw]
+                #hgt[iwin,:] = hgtline[start:end:doc.kw]
+
+                lat[iwin,:] = latline[range_indices]
+                lon[iwin,:] = lonline[range_indices]
+                hgt[iwin,:] = hgtline[range_indices]
+
                 incline = losline[0:doc.rngsize]
-                aziline = losline[doc.rngsize:doc.rngsize*2] 
-                inc[iwin,:] = incline[start:end:doc.kw]
-                azi[iwin,:] = aziline[start:end:doc.kw]
+                aziline = losline[doc.rngsize:doc.rngsize*2]
+
+                inc[iwin,:] = incline[range_indices]
+                azi[iwin,:] = aziline[range_indices]
+
 
             # Give the arrays to doc project.
             doc.lat = lat
@@ -325,7 +370,7 @@ class dense_offset():
            
             doc = self.doc
  
-            if self.stack == 'tops':
+            if self.stack.startswith('tops'):
                 pm = PM()
                 pm.configure()
                 obj = pm.loadProduct(os.path.join(self.trackfolder,self.burst_xml))
@@ -481,7 +526,7 @@ class dense_offset():
             # Point to the offset pickle file.
             self.doc_pkl = os.path.join(self.trackfolder,self.offsetFolder,str(runid) + '.pkl')
             
-            redo = 0
+            redo = 1
             if os.path.exists(self.doc_pkl) and redo==0:
                 with open(self.doc_pkl,'rb') as f:
                     self.doc = pickle.load(f)
@@ -501,21 +546,26 @@ class dense_offset():
                 self.get_slc_size(xmls[0])
             
                 # Get the offsetfield pixel size
-                
                 self.get_pixel_size()
 
-                # Obtain the offset geometry
+                print(doc.azPixelSize)
+                print(doc.rngPixelSize)
+
                 self.get_offset_geometry()
              
                 # Job-level initiation 
                 # doc.winsize = ...
 
                 # obtain reference velocity
-                self.reference()
 
+                if self.stack in ["stripmap","tops"]:
+                    self.reference()
+                else:
+                    pass
+                
                 # runtime gpu params
-                doc.nwac = 10
-                doc.nwdc = 10
+                doc.nwac = 100
+                doc.nwdc = 1
 
                 # save it
                 with open(self.doc_pkl ,'wb') as f:
@@ -578,19 +628,17 @@ class dense_offset():
                 f.write('gross=' + str(doc.gross)+ '\n')
                 f.write('gpuid=' + str(doc.gpuid)+ '\n')
                 f.write('deramp=' + str(doc.deramp)+ '\n')
-
+                f.write('oo=' + str(doc.oversample)+ '\n')
                 #f.write('nwac=' + str(doc.nwac)+ '\n')
                 #f.write('nwdc=' + str(doc.nwdc)+ '\n')
                 f.write('nwac=' + str(5)+ '\n')
                 f.write('nwdc=' + str(5)+ '\n')
-
                 f.write('outprefix='+str(offset_outprefix)+ '\n')
-
                 f.write('runid='+str(doc.runid)+'\n')  
                 f.write('outsuffix=' + '_run_$runid'+'\n')
 
                 #f.write('rm ' + '$outprefix$outsuffix' + '*\n')
-                f.write('cuDenseOffsets.py --master $master --slave $slave --ww $ww --wh $wh --sw $sw --sh $sh --mm $mm --kw $kw --kh $kh --gross $gross --outprefix $outprefix --outsuffix $outsuffix --deramp $deramp --gpuid $gpuid --nwac $nwac --nwdc $nwdc'+ '\n')
+                f.write('cuDenseOffsets.py --master $master --slave $slave --ww $ww --wh $wh --sw $sw --sh $sh --mm $mm --kw $kw --kh $kh --gross $gross --outprefix $outprefix --outsuffix $outsuffix --deramp $deramp --gpuid $gpuid --nwac $nwac --nwdc $nwdc --oo $oo \n')
 
                 f.close()
 
@@ -752,7 +800,9 @@ class dense_offset():
                 thrs_known_rng = 1
 
                 thrs_unknown = 2
-                
+
+                # Unknown values in reference
+                # Currently, (0,0) is taken as unknown which is not necessarily true 
                 unknown_refer_inds = np.logical_and(refer_az == 0, refer_rng == 0)
                 known_refer_inds = np.invert(unknown_refer_inds)
 
@@ -773,17 +823,17 @@ class dense_offset():
                 #mask = np.logical_or(np.abs(dif_az_day)>thrs_known_az,  np.abs(dif_rng_day)>thrs_known_rng)
 
                 # 4.
-                mask = np.logical_and(np.logical_or(np.abs(dif_az_day)>thrs_known_az,  np.abs(dif_rng_day)>thrs_known_rng), known_refer_inds)
+                mask = np.logical_or(np.abs(dif_az_day)>thrs_known_az,  np.abs(dif_rng_day)>thrs_known_rng)
 
                 if plot:
                     fig = plt.figure(1,figsize=(15,10))
-                    ax = fig.add_subplot(131)
-                    ax.imshow(unknown_refer_inds,cmap='coolwarm')
-                    ax.set_title('unknown')
+                    #ax = fig.add_subplot(131)
+                    #ax.imshow(unknown_refer_inds,cmap='coolwarm')
+                    #ax.set_title('unknown')
 
-                    ax = fig.add_subplot(132)
-                    ax.imshow(known_refer_inds,cmap='coolwarm')
-                    ax.set_title('known')
+                    #ax = fig.add_subplot(132)
+                    #ax.imshow(known_refer_inds,cmap='coolwarm')
+                    #ax.set_title('known')
 
                     ax = fig.add_subplot(133)
                     ax.imshow(mask,cmap='coolwarm')
@@ -820,44 +870,64 @@ class dense_offset():
 
             return mask
 
-        def _get_misCoreg(self,az,refer_az, rng, refer_rng, mask, order=1):
+        def _get_misCoreg(self, az,refer_az, rng, refer_rng, mask, order=1):
 
             doc = self.doc
 
-            # Unmoved places, smaller than thrs m/d. Control points.
+            # Find controlling points. Stationary places. Smaller than thrs m/d
+            # Note that np.nan values correspond to False, so they are excluded in the controlling points
             thrs = 0.05
             ind_az = np.abs(refer_az)<thrs
             ind_rng = np.abs(refer_rng)<thrs
 
-            # Consider the points smaller than the threshold and validly obtained.
+            # Consider the points smaller than the threshold and validly obtained
+            # ind_stationary is 2D boolean matrix
             ind_stationary = np.logical_and(np.logical_and(ind_az,ind_rng),np.invert(mask))
 
-            ind_d = np.arange(0,doc.numWinDown)
-            ind_a = np.arange(0,doc.numWinAcross)
+            plt.figure(figsize=(10,10))
+            plt.imshow(mask)
+            plt.savefig('6.png')
 
+            plt.figure(figsize=(10,10))
+            plt.imshow(ind_stationary)
+            plt.savefig('7.png')
+
+            print(stop)
+            
+            # Creating 2D meshgrids
+            ind_d = np.arange(0, doc.numWinDown)
+            ind_a = np.arange(0, doc.numWinAcross)
             aa,dd = np.meshgrid(ind_a,ind_d)
 
-            # Available points for calculating micoregistration
+            # Available points for calculating micoregistration (1D flattened array)
             ind_d_mis = dd[ind_stationary]
             ind_a_mis = aa[ind_stationary]
 
+            print(ind_d_mis)
+            print(ind_a_mis)
+            print(stop)
+
+            # Corresponding miscoregistration (1D flattened array)
             az_value_mis = az[ind_stationary] - refer_az[ind_stationary]
             rng_value_mis = rng[ind_stationary] - refer_rng[ind_stationary]
 
+            # Set up the 2D miscoregistration matrix
             az_mat_mis = np.full(shape=(doc.numWinDown, doc.numWinAcross), fill_value=np.nan)
             az_mat_mis[ind_d_mis, ind_a_mis] = az_value_mis
 
-            rng_mat_mis = np.full(shape=(doc.numWinDown, doc. numWinAcross), fill_value=np.nan)
+            rng_mat_mis = np.full(shape=(doc.numWinDown, doc.numWinAcross), fill_value=np.nan)
             rng_mat_mis[ind_d_mis, ind_a_mis] =  rng_value_mis
 
             # 2D polyfit
             # Azimuth
             num = len(az_value_mis)
+
+            # Represent the dimension for biasedness G.shape = (num, 3) coordinates: [1, x, y]
             col1 = np.full(shape=(num,), fill_value=1)
-            G = np.stack([col1,ind_a_mis,ind_d_mis],axis=1)
+            G = np.stack([col1, ind_a_mis, ind_d_mis], axis=1)
 
             (c,a,b) = np.linalg.lstsq(G, az_value_mis, rcond=None)[0]
-            az_mat_mis_pred = a * aa + b*dd + c
+            az_mat_mis_pred = c + a * aa + b * dd
 
             # Range
             num = len(rng_value_mis)
@@ -865,22 +935,24 @@ class dense_offset():
             G = np.stack([col1,ind_a_mis,ind_d_mis],axis=1)
 
             (c,a,b) = np.linalg.lstsq(G, rng_value_mis, rcond=None)[0]
-            rng_mat_mis_pred = a * aa + b*dd + c
+            rng_mat_mis_pred = c + a * aa + b * dd
 
-            #fig = plt.figure(figsize=(10,10))
+
+            # Plot
+            fig = plt.figure(figsize=(10,10))
             
-            #vmin = np.min(rng_mat_mis_pred)
-            #vmax = np.max(rng_mat_mis_pred)
+            vmin = np.min(rng_mat_mis_pred)
+            vmax = np.max(rng_mat_mis_pred)
             
-            #ax = fig.add_subplot(121)
-            #f1 = ax.imshow(rng_mat_mis,cmap=plt.cm.jet,vmin=vmin,vmax=vmax)
+            ax = fig.add_subplot(121)
+            f1 = ax.imshow(rng_mat_mis,cmap=plt.cm.jet,vmin=vmin,vmax=vmax)
 
-            #ax = fig.add_subplot(122)
-            #f1 = ax.imshow(rng_mat_mis_pred,cmap=plt.cm.jet,vmin=vmin,vmax=vmax)
-            #fig.colorbar(f1)
+            ax = fig.add_subplot(122)
+            f1 = ax.imshow(rng_mat_mis_pred,cmap=plt.cm.jet,vmin=vmin,vmax=vmax)
+            fig.colorbar(f1)
 
-            #fig.savefig('test2.png', format='png')
- 
+            fig.savefig('test2.png', format='png')
+
             #if order==0:
             #    az_mis = np.nanmedian(az[ind_stationary] - refer_az[ind_stationary])
             #    rng_mis = np.nanmedian(rng[ind_stationary] - refer_rng[ind_stationary])
@@ -889,7 +961,7 @@ class dense_offset():
 
             return (az_mat_mis_pred,rng_mat_mis_pred)
 
-        def _run_offset_filter_v2(self,data,data_snr,mask=None, label=None, refer=None):
+        def _run_offset_filter_v2(self, data, data_snr, mask=None, label=None, refer=None):
 
             doc = self.doc
            
@@ -906,6 +978,10 @@ class dense_offset():
             if do_step_1:
                 # Mask out where the reference is nan.
                 med1_data[np.isnan(refer)] = np.nan
+
+                #print(np.isnan(refer))
+                #print(mask)
+                #print(stop)
             
                 # Using the mask
                 if mask is not None: 
@@ -915,7 +991,9 @@ class dense_offset():
             do_step_2 = True
             if do_step_2:
                 med2_data = np.copy(med1_data)
-                med2_kernel_size = (7,7)
+                
+                #med2_kernel_size = (9,15)
+                med2_kernel_size = (5,7)
 
                 # Median filters
                 #med2_data = ndimage.median_filter(input=med2_data,size=med2_kernel_size,mode='nearest') 
@@ -1064,7 +1142,7 @@ class dense_offset():
 
             doc = self.doc
 
-            pad = 1
+            pad = 0.5
 
             # Ranges of values.
             # Plot azimuth offset.
@@ -1073,12 +1151,6 @@ class dense_offset():
 
             vmin10 = np.floor(vmin*10)/10-pad
             vmax10 = np.ceil(vmax*10)/10+pad
-
-            #vmin10 = -0.05
-            #vmax10 = 0.05
-
-            #print(vmin10, vmax10)
-            #print(stop)
 
             self.fig = plt.figure(1, figsize=(18,6))
 
@@ -1090,8 +1162,6 @@ class dense_offset():
             im = ax.imshow(azOff_re, cmap=cm.jet, vmax=vmax10, vmin=vmin10)
             self.fig.colorbar(im,fraction=frac, pad=padbar, orientation='horizontal',ticks=np.arange(np.round(vmin10),np.round(vmax10)+1,1),label='m')
             #self.fig.colorbar(im,fraction=0.07, orientation='horizontal',label='meter')
-
-
 
             ax = self.fig.add_subplot(162)
             ax.set_title('Raw azimuth offset') 
@@ -1136,16 +1206,44 @@ class dense_offset():
             self.fig.savefig(os.path.join(figdir,'offset_' + title + ".pdf"), format='pdf',bbox_inches='tight')
             self.fig.savefig(os.path.join(figdir,'offset_' + title + ".png"), format='png',bbox_inches='tight')
 
+            # Cut a line through
+            fig  = plt.figure(2, figsize=(10,10))
+            ax = fig.add_subplot(111)
+            line = azOff[2000,:]
+            ax.plot(line)
+            fig.savefig(figdir + '/'+'line.png')
+
+            print(np.arange(len(line))[line<-8])
+
             return 0
 
-        def _save_az_rng(self, azOffset_filtered, rngOffset_filtered):
+        def _save_az_rng(self, azOffset_filtered, rngOffset_filtered, final_mask):
 
             doc = self.doc
 
             # Convert back to pixels in real interim days.
             azOffset_filtered_ori = azOffset_filtered / doc.azPixelSize * doc.interim
             rngOffset_filtered_ori = rngOffset_filtered / doc.rngPixelSize * doc.interim
- 
+
+            # Warning: ad hoc to RidgeCrest Earthquake
+            if self.stack == "tops_RC":
+                if self.trackname == "track_64":
+                    azOffset_filtered_ori += 3.5/128
+                    rngOffset_filtered_ori += 6/128
+
+                    print('Corrected!')
+
+                elif self.trackname == "track_7101":
+                    azOffset_filtered_ori += 0.5/128
+                    rngOffset_filtered_ori += 3/128
+
+                    print('Corrected!')
+
+
+            # Set the value without inc ==0 to be invalid
+            azOffset_filtered_ori[final_mask] = nanvalue
+            rngOffset_filtered_ori[final_mask] = nanvalue
+
             redo = 1
 
             # Remove the existed ones.
@@ -1206,7 +1304,7 @@ class dense_offset():
             return 0
 
 
-        def _offset_filter(self,offsetfile,snrfile,title):
+        def _offset_filter(self, offsetfile, snrfile, offsetLosFile, title):
 
             # Filter the offset fields.
             # The intermediate unit is meter/day.
@@ -1221,49 +1319,104 @@ class dense_offset():
             ds = gdal.Open(snrfile)
             data_snr = ds.GetRasterBand(1).ReadAsArray()
 
-            # reference
-            refer_azOffset = doc.grossDown
-            refer_rngOffset = doc.grossAcross
+            ds = gdal.Open(offsetLosFile)
+            inc = ds.GetRasterBand(1).ReadAsArray()
 
-            # convert reference from pixels to meter per day.
+            # Generatre a mask for invalid values at margins (useful for S1, GPU ampcor gives (-4, -4) to invalid cross-correlation))
+            # Alternative way is to use offsetLosFile, but could be wrong if offsetLosFile doesn't match offset field
+            # True invalid, False valid
+            mask_of_invalid = np.logical_or(np.logical_and(azOffset==-4, rngOffset==-4), inc==0)
+
+            # reference
+            if self.stack in ["tops","stripmap"]:
+                refer_azOffset = doc.grossDown
+                refer_rngOffset = doc.grossAcross
+            else:
+                refer_azOffset = np.zeros(shape=azOffset.shape)
+                refer_rngOffset = np.zeros(shape=rngOffset.shape)
+
+            # Convert reference from pixels to meter per day.
             refer_azOffset = refer_azOffset * doc.azPixelSize
             refer_rngOffset = refer_rngOffset * doc.rngPixelSize
  
-            # save the reference (already saved as grossDown/Across)
+            # Save the reference (already saved as grossDown/Across)
             #doc.refer_azOffset = refer_azOffset
             #doc.refer_rngOffset = refer_rngOffset
-
 
             # Convert observation from pixels to meter per day.
             azOffset = azOffset * doc.azPixelSize / doc.interim
             rngOffset = rngOffset * doc.rngPixelSize / doc.interim
 
-            # Generate first mask to remove bad values, used for deriving mis-coreg.
-            mask = self._get_refer_mask(azOffset, refer_azOffset, rngOffset, refer_rngOffset)
+            ###########     Filtering
+            # Generate mask by reference. Values deviate too much from reference set as True. Use for deriving mis-coreg.
+            mask_by_reference = self._get_refer_mask(azOffset, refer_azOffset, rngOffset, refer_rngOffset)
 
-            # Get the mis-coregistration.
-            az_mis, rng_mis = self._get_misCoreg(azOffset, refer_azOffset, rngOffset, refer_rngOffset, mask)
-            #print('miscoregis: ', az_mis, rng_mis)
+            plt.figure(figsize=(10,10))
+            plt.imshow(mask_by_reference)
+            print(mask_by_reference)
+            plt.savefig('2.png')
+            #print(stop)
+ 
+            # Mask of both invalid values and erroreous estimations
+            mask = np.logical_or(mask_by_reference, mask_of_invalid)
+
+            plt.figure(figsize=(10,10))
+            plt.imshow(mask)
+            plt.savefig('3.png')
+            #print(stop)
+
+            plt.figure(figsize=(10,10))
+            im = plt.imshow(azOffset,vmin=-1, vmax=1)
+            plt.colorbar(im)
+            plt.savefig('4.png')
+
+            # Run filtering
+            #azOffset_filtered = self._run_offset_filter(azOffset, data_snr, mask=mask, label='az',refer=refer_azOffset)
+            
+            #rngOffset_filtered = self._run_offset_filter(rngOffset, data_snr, mask=mask, label='rng',refer=refer_rngOffset)
+
+            # Version 2: 1) set the masked value to np.nan and 2) run 2-D median filter across the fields
+            azOffset_filtered = self._run_offset_filter_v2(azOffset, data_snr, mask=mask, label='az',refer=refer_azOffset)
+            
+            rngOffset_filtered = self._run_offset_filter_v2(rngOffset, data_snr, mask=mask, label='rng',refer=refer_rngOffset)
+
+            plt.figure(figsize=(10,10))
+            plt.imshow(azOffset_filtered,vmin=-1, vmax=1)
+            plt.savefig('5.png')
+
+            ############    Miscoregistration correction
+            # 1) update mask
+            # Generate mask by reference. Values deviate too much from reference set as True. Use for deriving mis-coreg.
+            # Get nothing, because bad values have all been masked out
+            mask_by_reference = self._get_refer_mask(azOffset_filtered, refer_azOffset, rngOffset_filtered, refer_rngOffset)
+
+            plt.figure(figsize=(10,10))
+            im = plt.imshow(mask_by_reference)
+            plt.savefig('6.png')
+
+            # Mask of both invalid values and erroreous  estimations
+            mask = np.logical_or(mask_by_reference, mask_of_invalid)
+
+            plt.figure(figsize=(10,10))
+            im = plt.imshow(mask)
+            plt.savefig('7.png')
+
+            # 2) Get miscoregistration
+            # Only true values in mask should be used for calculating miscoregistration
+            az_mis, rng_mis = self._get_misCoreg(azOffset_filtered, refer_azOffset, rngOffset_filtered, refer_rngOffset, mask)
+            print('miscoregis: ', az_mis, rng_mis)
+
+            print(stop)
 
             # Mis-coregistration correction.
             # 2019.03.04
             # Close the offset correction, because it is unnecessary for S1ab
             # Need to open up this for CSK
+            miscoreg_correction = False
 
-            #azOffset = azOffset - az_mis
-            #rngOffset = rngOffset - rng_mis
-
-            # Generate second mask, used for filtering.
-            mask = self._get_refer_mask(azOffset, refer_azOffset, rngOffset, refer_rngOffset)
-
-            # Filtering.
-            #azOffset_filtered = self._run_offset_filter(azOffset, data_snr, mask=mask, label='az',refer=refer_azOffset)
-            
-            #rngOffset_filtered = self._run_offset_filter(rngOffset, data_snr, mask=mask, label='rng',refer=refer_rngOffset)
-
-            azOffset_filtered = self._run_offset_filter_v2(azOffset, data_snr, mask=mask, label='az',refer=refer_azOffset)
-            
-            rngOffset_filtered = self._run_offset_filter_v2(rngOffset, data_snr, mask=mask, label='rng',refer=refer_rngOffset)
+            if miscoreg_correction:
+                azOffset_filtered = azOffset_filtered - az_mis
+                rngOffset_filtered = rngOffset_filtered - rng_mis
 
             # Cross nan validation.
             nan_ind = np.logical_or(np.isnan(azOffset_filtered), np.isnan(rngOffset_filtered))
@@ -1275,8 +1428,8 @@ class dense_offset():
 
             # Convert the unit from meter per day to pixel.
             # Save the offset fields.
-            self._save_az_rng(azOffset_filtered, rngOffset_filtered)
 
+            self._save_az_rng(azOffset_filtered, rngOffset_filtered, mask_of_invalid)
             
             return 0
 
@@ -1309,6 +1462,14 @@ class dense_offset():
                 offsetfile = offset_outprefix + '_run_' + str(doc.runid) + '.bip'
                 snrfile = offset_outprefix + '_run_' + str(doc.runid) + '_snr.bip'
 
+                offsetLosFile = doc.offsetLosFile
+
+                # Check if the files exist
+                if not os.path.exists(offsetfile) or not os.path.exists(snrfile):
+                    print("The offset field file doesn't exist")
+                    print("skip ", date1str+'_'+date2str)
+                    continue
+
 
                 title = date1str+'_'+date2str
 
@@ -1327,7 +1488,7 @@ class dense_offset():
 
                         print('work on it!')
                         func = self._offset_filter
-                        p = Process(target=func, args=(offsetfile,snrfile,title,))
+                        p = Process(target=func, args=(offsetfile, snrfile, offsetLosFile, title,))
                         self.jobs.append(p)
                         p.start()
                         self.doc_count = self.doc_count + 1
@@ -1349,12 +1510,16 @@ class dense_offset():
 
             latfile = doc.offsetLatFile
             lonfile = doc.offsetLonFile
-
             losfile = doc.offsetLosFile
 
             # Define grid, approximate 500 x 500 m (important)
-            lon_step = 0.02
-            lat_step = 0.005
+            if self.stack in ["tops","stripmap"]:
+                lon_step = 0.02
+                lat_step = 0.005
+            else:
+                lon_step = 0.002
+                lat_step = 0.002
+
 
             # Geocode LOS file.
             print('Geocoding LOS file ...')
@@ -1371,17 +1536,14 @@ class dense_offset():
 
             if self.exe:
                 # Delete the old files.
-                #os.system('rm ' + self.trackfolder + '/' + self.geometry + '/gc*')
-                #os.system('rm ' + self.trackfolder + '/' + self.geometry + '/temp*')
+                os.system('rm ' + self.trackfolder + '/' + self.geometry + '/gc*')
+                os.system('rm ' + self.trackfolder + '/' + self.geometry + '/temp*')
 
                 # Generate new files.
-                #os.system(cmd1)
-                #os.system(cmd2)
-
-                pass
+                os.system(cmd1)
+                os.system(cmd2)
 
             # generate the vectors in enu coordinates
-
             for offsetfield in self.offsetfields:
     
                 date1str = offsetfield[0]
@@ -1399,20 +1561,35 @@ class dense_offset():
 
                 doc.offset_folder = os.path.join(self.trackfolder,self.offsetFolder,date1str+'_'+date2str)
 
-                # geocode offsetfields
-
+                # geocode the filtered offsetfields
                 azOffset = os.path.join(doc.offset_folder, 'filtAzimuth_' + str(doc.runid) + version + '.off')
                 rngOffset = os.path.join(doc.offset_folder, 'filtRange_' + str(doc.runid) + version + '.off')
+
+                # geocode covariance
+                offset_outprefix = os.path.join(doc.offset_folder,doc.outprefix)
+                covfile = offset_outprefix + '_run_' + str(doc.runid) + '_cov.bip'
+
+                if not os.path.exists(azOffset) or not os.path.exists(rngOffset):
+                    print("The filtered offset field file doesn't exist")
+                    print("skip ", date1str+'_'+date2str)
+                    continue
 
                 cmd1 = 'geocodeGdal.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + azOffset
                 cmd2 = 'geocodeGdal.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + rngOffset
 
-                # Parallel computing is problematic.
+                # geocode covariance file
+                cmd3 = 'geocodeGdal.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + covfile
+
+                # Parallel computing is problematic (seems to be fixed).
 
                 # check if we should do it
                 if self.exe:
                     os.system('rm ' + doc.offset_folder + '/gc*' + version +'*')
                     os.system('rm ' + doc.offset_folder + '/*temp*')
+
+                    os.system('rm ' + doc.offset_folder + '/gc*cov*')
+
+                    os.system(cmd3)
                 
                     func =  globals()['run_denseoffset_bash']
                     p = Process(target=func, args=([cmd1,cmd2],self.exe))

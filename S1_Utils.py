@@ -41,7 +41,7 @@ class S1_Utils():
                     ref_date[track] = day
         self.ref_date = ref_date
 
-        print(ref_date)
+        print("reference date for tracks: ", ref_date)
 
         self.startdate = date(2014,5,1)
         self.enddate = date(2024,5,1)

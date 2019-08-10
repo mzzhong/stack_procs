@@ -45,7 +45,7 @@ nprocess['unpack_slc_topo_master'] = 8
 nprocess['average_baseline'] = 16
 nprocess['geo2rdr_resample'] = 2
 nprocess['extract_stack_valid_region'] = 1
-nprocess['merge_master_slave_slc'] = 4
+nprocess['merge_master_slave_slc'] = 1
 nprocess['dense_offsets'] = 6
 nprocess['postprocess'] = {'geometry':1, 'maskandfilter': 12}
 nprocess['geocode'] = 8
@@ -244,7 +244,7 @@ def check_exist(step,line):
         for ip in range(len(params)):
             if params[ip][0:7] == 'outfile':
                 outdir = params[ip].split()[-1]
-                xml1 = outdir + '.full.xml'
+                xml1 = outdir + '.full.aux.xml'
 
                 if os.path.exists(xml1):
                     exist = True
@@ -300,9 +300,17 @@ def main(iargs=None):
     e_date = datetime.datetime.strptime(inps.e_date, fmt)
 
     ## Set up the project.
-    stack = 'tops'
-    workdir = '/net/jokull/nobak/mzzhong/S1-Evans'
-    runid = 20180703
+    proj_name = "RC"
+
+    if proj_name == "S1-Evans":
+        stack = 'tops'
+        workdir = '/net/jokull/nobak/mzzhong/S1-Evans'
+        runid = 20180703
+
+    elif proj_name == "RC":
+        stack = 'tops_RC'
+        workdir = '/net/kraken/nobak/mzzhong/RC_denseOffsets'
+        runid = 20190725
 
     # Used for simple multithread-processing.
     count = 0
@@ -343,7 +351,6 @@ def main(iargs=None):
                 print(name)
  
             else:
-
                 print(name)
 
                 # in case the folder doesn't exist
