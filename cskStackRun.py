@@ -6,7 +6,6 @@ import re
 
 import numpy as np
 import time
-from CSK_Utils import CSK_Utils
 import datetime
 from datetime import date
 
@@ -15,9 +14,35 @@ import glob
 from multiprocessing import Process
 import argparse
 
+from dense_offset import dense_offset
 
-from dense_offset import *
+proj = "CSK-Rutford"
+#proj = "CSK-Evans"
 
+# runid should be associated with a set up dense offset parameters
+# version should be associated post-filtering
+if proj == "CSK-Rutford":
+    # Set up the project.
+    stack = "stripmap"
+    workdir = "/net/kraken/nobak/mzzhong/CSK-Rutford"
+    
+    # runid = 20190908
+    # params: ww=128, wh=128, sw=20, sh=20, kw=64, kh=64
+    #runid = 20190908
+
+    # runid = 20190921
+    # params: ww=128, wh=64, sw=20, sh=20, kw=64, kh=32
+    runid = 20190921
+
+    # runid = 20190925
+    # params: ww=64, wh=64, sw=20, sh=20, kw=32, kh=32
+    #runid = 20190925
+
+elif proj=="CSK-Evans":
+    # Set up the project.
+    stack = "stripmap"
+    workdir = "/net/kraken/nobak/mzzhong/CSK-Evans"
+    runid = 20180712
 
 steplist = ['init','create','crop','master','focus_split','geo2rdr_coarseResamp','dense_offset','postprocess','focus_all','geocode','plot_geocoded']
 nprocess = {}
@@ -25,22 +50,27 @@ nprocess['init'] = 1
 nprocess['create'] = 1
 nprocess['crop'] = 8
 nprocess['master'] = 1
-nprocess['focus_split'] = 4
+nprocess['focus_split'] = 8
 nprocess['geo2rdr_coarseResamp'] = 1
 nprocess['dense_offset'] = 6
-nprocess['postprocess'] = {'geometry':1, 'maskandfilter': 8}
+nprocess['postprocess'] = {'geometry':1, 'maskandfilter': 12}
 nprocess['focus_all'] = 8
-nprocess['geocode'] = 1
+nprocess['geocode'] = 8
 nprocess['plot_geocoded'] = 1
 
 def createParser():
     parser = argparse.ArgumentParser( description='control the running of the stacks step list: [init(0), create(1), crop(2), master(3), focus_split(4), geo2rdr_coarseResamp(5), dense_offset(6), postprocess(7), focus_all(8), geocode(9), plot_geocoded(10)]')
-    parser.add_argument('-fs', dest='fs',type=int,default=0,help='the first stack')
-    parser.add_argument('-ls', dest='ls',type=int,default=0,help='the last stack')
+    parser.add_argument('-fs', dest='fs',type=int,default=0,help='the first track')
+    parser.add_argument('-ls', dest='ls',type=int,default=0,help='the last track')
+    parser.add_argument('-is',dest="istack", type=int, default=0, help="the number of stack in this track")
+    parser.add_argument('-t',dest="track",type=str, default="", help="the track to process")
+    
     parser.add_argument('-first', dest='first',type=str,help='the first step',default=None)
     parser.add_argument('-last', dest='last',type=str,help='the last step',default=None)
     parser.add_argument('-do', dest='do',type=str,help='do this step',default=None)
-    
+
+    parser.add_argument('--onlyGeo2rdr', dest='onlyGeo2rdr',type=bool,default=False, help='only perform geo2rdr and skip resampling')
+   
     parser.add_argument('-e', dest='exe',type=bool, help='execute the command or not', default=False)
 
     return parser
@@ -187,12 +217,18 @@ def check_exist(step,line):
 
         if not (os.path.exists(azxml) and os.path.exists(rngxml)):
             exist = False
+
         elif os.path.exists(slc):
             exist = True
         else:
             exist = False
             start = 2
             end = 2
+
+        # Skip the resampling process
+        #if inps.onlyGeo2rdr == True:
+        #    start =1
+        #    end = 1
                 
     f.close()
     
@@ -202,11 +238,12 @@ def main(iargs=None):
 
     inps = cmdLineParse(iargs)
 
-    # prepare the csk routine
-    csk = CSK_Utils()
-
-    # the tracks to process
-    tracks = range(inps.fs,inps.ls+1)
+    # the tracks to process, first look at inps.track (for mode like CSK-Rutford)
+    if inps.track!="":
+        tracks = [int(track) for track in inps.track.split(',')]
+    # then look at inps.fs and inps.ls (for mode like CSK-Evans)
+    else:
+        tracks = range(inps.fs,inps.ls+1)
 
     # the steps
     if ( inps.first == None and inps.last == None ) and inps.do == None:
@@ -232,12 +269,6 @@ def main(iargs=None):
         print('the first step should not be later than the last step')
         return 0
 
-
-    # Set up the project.
-    stack = "stripmap"
-    workdir = "/net/kraken/nobak/mzzhong/CSK-Evans"
-    runid = 20180712
-
     # Used for simple multihreading processing.
     jobs = []
     count = 0
@@ -248,22 +279,29 @@ def main(iargs=None):
         
         # loop through the tracks
         if stepname == 'dense_offset':
-            offset = dense_offset(stack=stack, workdir = workdir, nproc = nprocess['dense_offset'], exe=inps.exe)
+            offset = dense_offset(stack=stack, workdir = workdir, nproc = nprocess['dense_offset'], runid=runid, exe=inps.exe)
         
         if stepname == 'postprocess':
-            offset = dense_offset(stack=stack, workdir = workdir, nproc = nprocess['postprocess'], exe=inps.exe)
+            offset = dense_offset(stack=stack, workdir = workdir, nproc = nprocess['postprocess'], runid=runid, exe=inps.exe)
 
         if stepname == 'geocode':
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['geocode'],exe = inps.exe)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['geocode'], runid=runid, exe = inps.exe)
 
         if stepname == 'plot_geocoded':
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['plot_geocoded'],exe = inps.exe)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['plot_geocoded'], runid=runid, exe = inps.exe)
 
         for i in tracks:
-            for j in range((csk.numOfFrames[i]-1)//csk.maxframenum+1):
 
-                name='track_' + str(i).zfill(2) + str(j)
-                print(name)
+            for j in range(1):
+
+                if proj == "CSK-Rutford":
+                    name = "track_" + str(i).zfill(3) + '_' + str(inps.istack)
+                elif proj == "CSK-Evans":
+                    name='track_' + str(i).zfill(2) + str(j)
+                else:
+                    raise Exception()
+                
+                print("track name: ", name)
 
                 # in case the folder doesn't exist
                 if os.path.exists(name) == False:
@@ -295,25 +333,29 @@ def main(iargs=None):
                         jobs = []
 
                 elif stepname == 'dense_offset':
-                    offset.initiate(trackname = name, runid=runid)
+                    offset.initiate(trackname = name)
                     offset.run_offset_track()
 
                 elif stepname == 'postprocess':
-                    offset.initiate(trackname = name, runid=runid)
+                    offset.initiate(trackname = name)
                     offset.postprocess()
 
                 elif steplist[step] == 'geocode':
                     
-                    offset.initiate(trackname = name, runid=runid)
+                    offset.initiate(trackname = name)
                     offset.geocode()
 
                 elif steplist[step] == 'plot_geocoded':
                     
-                    offset.initiate(trackname = name, runid=runid)
+                    offset.initiate(trackname = name)
                     last = (i == tracks[-1])
-                    offset.plot_geocoded(label='all', last = last)
+                    #offset.plot_geocoded(label='all', last = last)
+                    offset.plot_geocoded(label='separate')
 
-                elif stepname == 'crop' or stepname == 'master' or stepname == 'focus_split' or stepname=='geo2rdr_coarseResamp':
+                elif stepname == "crop":
+                    os.system("/net/kraken/nobak/mzzhong/CSK-Rutford/createFolder.py")
+
+                elif stepname == 'master' or stepname == 'focus_split' or stepname=='geo2rdr_coarseResamp':
 
                     cmd_file = os.path.join(name,'run_files','run_'+str(step-1)+'_'+steplist[step])
                     f = open(cmd_file)
@@ -346,6 +388,8 @@ def main(iargs=None):
                 elif stepname == 'focus_all':
                     # focus all master and slave
 
+                    print("focus all is closed")
+                    print(stop)
 
                     # master step
                     step_master = steplist.index('master')
