@@ -2370,6 +2370,11 @@ class dense_offset():
             doc.lon_list = lon_list
             doc.lat_list = lat_list
 
+
+        def int5d_to_float(self,x):
+            return [num/(10**5) for num in x]
+
+        # Find the index of the point in the geocoded offset field
         def point_index(self,point):
 
             doc = self.doc
@@ -2381,6 +2386,9 @@ class dense_offset():
             lat_list = doc.lat_list
 
             lon, lat = point
+
+            # Here, we need to convert lon, lat to float
+            lon, lat = self.int5d_to_float([lon, lat])
 
             if len(np.where(lon_list == lon)[0])==1:
                 ind_x = np.where(lon_list == lon)[0][0]
