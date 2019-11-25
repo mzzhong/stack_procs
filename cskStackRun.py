@@ -296,8 +296,10 @@ def main(iargs=None):
 
                 if proj == "CSK-Rutford":
                     name = "track_" + str(i).zfill(3) + '_' + str(inps.istack)
+                
                 elif proj == "CSK-Evans":
                     name='track_' + str(i).zfill(2) + str(j)
+                
                 else:
                     raise Exception()
                 

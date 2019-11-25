@@ -155,11 +155,11 @@ class grossOffsets:
         #print(stop)
 
 
-        dataset = gdal.Open("/net/jokull/nobak/mzzhong/S1-Evans/data-visualization/Ant_Velo_VX.tif", gdal.GA_ReadOnly)
+        dataset = gdal.Open("/net/jokull/nobak/mzzhong/Ant_Data/data-visualization/Ant_Velo_VX.tif", gdal.GA_ReadOnly)
         band = dataset.GetRasterBand(1)
         self.vx = band.ReadAsArray()
 
-        dataset = gdal.Open("/net/jokull/nobak/mzzhong/S1-Evans/data-visualization/Ant_Velo_VY.tif", gdal.GA_ReadOnly)
+        dataset = gdal.Open("/net/jokull/nobak/mzzhong/Ant_Data/data-visualization/Ant_Velo_VY.tif", gdal.GA_ReadOnly)
         band = dataset.GetRasterBand(1)
         self.vy = band.ReadAsArray()
 
