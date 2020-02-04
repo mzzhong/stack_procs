@@ -36,7 +36,7 @@ S1Bstart_dt = datetime.datetime.strptime(S1Bstart, '%Y%m%d')
 
 # Steps and processors.
 
-steplist = ['init','create','unpack_slc_topo_master', 'average_baseline', 'geo2rdr_resample', 'extract_stack_valid_region', 'merge_master_slave_slc', 'dense_offsets', 'postprocess','geocode','show_doc','plot_geocoded']
+steplist = ['init','create','unpack_slc_topo_master', 'average_baseline', 'geo2rdr_resample', 'extract_stack_valid_region', 'merge_master_slave_slc', 'dense_offsets', 'postprocess','geocode','show_doc','plot_geocoded','create_stack']
 nprocess = {}
 
 nprocess['init'] = 1
@@ -46,15 +46,16 @@ nprocess['average_baseline'] = 16
 nprocess['geo2rdr_resample'] = 2
 nprocess['extract_stack_valid_region'] = 1
 nprocess['merge_master_slave_slc'] = 1
-nprocess['dense_offsets'] = 6
+nprocess['dense_offsets'] = 7
 nprocess['postprocess'] = {'geometry':1, 'maskandfilter': 12}
 nprocess['geocode'] = 8
 nprocess['show_doc'] = 1
 nprocess['plot_geocoded'] = 1
-
+nprocess['create_stack'] = 1
 
 def createParser():
-    parser = argparse.ArgumentParser( description='control the running of the stacks step list: [init(0), create(1), unpack_slc_topo_master(2), average_baseline(3), geo2rdr_resample(4), extract_stack_valid_region(5), merge_master_slave_slc(6), dense_offsets(7), postprocess(8), geocode(9), show_doc(10), plot_geocoded(11)]')
+
+    parser = argparse.ArgumentParser( description='control the running of the stacks step list: [init(0), create(1), unpack_slc_topo_master(2), average_baseline(3), geo2rdr_resample(4), extract_stack_valid_region(5), merge_master_slave_slc(6), dense_offsets(7), postprocess(8), geocode(9), show_doc(10), plot_geocoded(11), create_stack(12)]')
     
     parser.add_argument('-t', '--tracks', dest='tracks',type=str,help='tracks to process(comma separated)',default=None)
     parser.add_argument('-p', '--pairs', dest='pairs',type=str,help='pairs to process(comma separated)',default=None)
@@ -254,8 +255,6 @@ def check_exist(step,line):
 
     return (exist,start,end)
 
-   
-    
 def main(iargs=None):
 
     ## Prepare the parameters.
@@ -300,12 +299,26 @@ def main(iargs=None):
     e_date = datetime.datetime.strptime(inps.e_date, fmt)
 
     ## Set up the project.
-    proj_name = "RC"
+    proj_name = "S1-Evans"
 
     if proj_name == "S1-Evans":
         stack = 'tops'
         workdir = '/net/jokull/nobak/mzzhong/S1-Evans'
-        runid = 20180703
+
+        # runid = 20180703
+        # params: ww=256 wh=128 sw=10 sh=10 kw=128 kh=64
+        #runid = 20180703
+
+        # runid = 20200101
+        # params: ww=256 wh=128 sw=10 sh=10 kw=128 kh=64
+        # run with new GPU ampcor
+        #runid = 20200101
+
+        # runid = 20200102
+        # params: ww=512 wh=128 sw=10 sh=10 kw=256 kh=64
+        # run with new GPU ampcor
+        runid = 20200102
+
 
     elif proj_name == "RC":
         stack = 'tops_RC'
@@ -323,23 +336,27 @@ def main(iargs=None):
 
         if stepname == 'dense_offsets':
 
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['dense_offsets'],exe = inps.exe)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['dense_offsets'], runid = runid, exe = inps.exe)
 
         if stepname == 'postprocess':
 
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['postprocess'],exe = inps.exe)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['postprocess'], runid = runid, exe = inps.exe)
 
         if stepname == 'geocode':
 
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['geocode'],exe = inps.exe)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['geocode'], runid=runid, exe = inps.exe)
 
         if stepname == 'show_doc':
             
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['show_doc'],exe = False)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['show_doc'],runid = runid, exe = False)
 
         if stepname == 'plot_geocoded':
             
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['plot_geocoded'],exe = inps.exe)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['plot_geocoded'],runid = runid, exe = inps.exe)
+
+        if stepname == 'create_stack':
+
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['create_stack'], runid=runid, exe = inps.exe)
 
 
         # loop through the targes
@@ -381,28 +398,33 @@ def main(iargs=None):
 
                 elif steplist[step] == 'dense_offsets':
                     
-                    offset.initiate(trackname = name, runid=runid)
+                    offset.initiate(trackname = name)
                     offset.run_offset_track()
 
                 elif steplist[step] == 'postprocess':
 
-                    offset.initiate(trackname = name, runid=runid)
+                    offset.initiate(trackname = name)
                     offset.postprocess(s_date=s_date,e_date=e_date)
 
                 elif steplist[step] == 'show_doc':
                     
-                    offset.initiate(trackname = name, runid=runid)
+                    offset.initiate(trackname = name)
                     offset.show_doc()
 
                 elif steplist[step] == 'geocode':
                     
-                    offset.initiate(trackname = name, runid=runid)
+                    offset.initiate(trackname = name)
                     offset.geocode(s_date=s_date,e_date=e_date)
 
                 elif steplist[step] == 'plot_geocoded':
                     
-                    offset.initiate(trackname = name, runid=runid)
+                    offset.initiate(trackname = name)
                     offset.plot_geocoded()
+
+                elif steplist[step] == "create_stack":
+
+                    offset.initiate(trackname = name)
+                    offset.createOffsetFieldStack()
  
                 else:
                     cmd_file = os.path.join(name,'run_files','run_'+str(step-1)+'_'+steplist[step])
@@ -413,7 +435,6 @@ def main(iargs=None):
                         print('===========================')
 
                         cmd = lines[ii]
-
 
                         # checking if results exist
                         (exist, start, end) = check_exist(step,cmd)

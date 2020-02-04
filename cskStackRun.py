@@ -25,7 +25,15 @@ if proj == "CSK-Rutford":
     # Set up the project.
     stack = "stripmap"
     workdir = "/net/kraken/nobak/mzzhong/CSK-Rutford"
-    
+
+    # runid = 20190901
+    #params: ww=480, wh=240, sw=20, sh=20, kw=240, kh=120
+    #runid = 20190901
+
+    # runid = 20190904
+    #params: ww=256, wh=128, sw=20, sh=20, kw=128, kh=64
+    #runid = 20190904
+
     # runid = 20190908
     # params: ww=128, wh=128, sw=20, sh=20, kw=64, kh=64
     #runid = 20190908
@@ -44,7 +52,7 @@ elif proj=="CSK-Evans":
     workdir = "/net/kraken/nobak/mzzhong/CSK-Evans"
     runid = 20180712
 
-steplist = ['init','create','crop','master','focus_split','geo2rdr_coarseResamp','dense_offset','postprocess','focus_all','geocode','plot_geocoded']
+steplist = ['init','create','crop','master','focus_split','geo2rdr_coarseResamp','dense_offset','postprocess','focus_all','geocode','plot_geocoded','create_stack']
 nprocess = {}
 nprocess['init'] = 1
 nprocess['create'] = 1
@@ -57,9 +65,12 @@ nprocess['postprocess'] = {'geometry':1, 'maskandfilter': 12}
 nprocess['focus_all'] = 8
 nprocess['geocode'] = 8
 nprocess['plot_geocoded'] = 1
+nprocess['create_stack'] = 1
 
 def createParser():
-    parser = argparse.ArgumentParser( description='control the running of the stacks step list: [init(0), create(1), crop(2), master(3), focus_split(4), geo2rdr_coarseResamp(5), dense_offset(6), postprocess(7), focus_all(8), geocode(9), plot_geocoded(10)]')
+
+    parser = argparse.ArgumentParser( description='control the running of the stacks step list: [init(0), create(1), crop(2), master(3), focus_split(4), geo2rdr_coarseResamp(5), dense_offset(6), postprocess(7), focus_all(8), geocode(9), plot_geocoded(10), create_stack(11)]')
+    
     parser.add_argument('-fs', dest='fs',type=int,default=0,help='the first track')
     parser.add_argument('-ls', dest='ls',type=int,default=0,help='the last track')
     parser.add_argument('-is',dest="istack", type=int, default=0, help="the number of stack in this track")
@@ -290,6 +301,9 @@ def main(iargs=None):
         if stepname == 'plot_geocoded':
             offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['plot_geocoded'], runid=runid, exe = inps.exe)
 
+        if stepname == 'create_stack':
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['create_stack'], runid=runid, exe = inps.exe)
+
         for i in tracks:
 
             for j in range(1):
@@ -353,6 +367,11 @@ def main(iargs=None):
                     last = (i == tracks[-1])
                     #offset.plot_geocoded(label='all', last = last)
                     offset.plot_geocoded(label='separate')
+
+                elif steplist[step] == 'create_stack':
+                    
+                    offset.initiate(trackname = name)
+                    offset.createOffsetFieldStack()
 
                 elif stepname == "crop":
                     os.system("/net/kraken/nobak/mzzhong/CSK-Rutford/createFolder.py")
