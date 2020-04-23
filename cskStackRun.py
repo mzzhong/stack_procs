@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import os
 import sys
 import re
@@ -14,6 +13,7 @@ import glob
 from multiprocessing import Process
 import argparse
 
+#from dense_offset import dense_offset
 from dense_offset import dense_offset
 
 proj = "CSK-Rutford"
@@ -28,7 +28,7 @@ if proj == "CSK-Rutford":
 
     # runid = 20190901
     #params: ww=480, wh=240, sw=20, sh=20, kw=240, kh=120
-    #runid = 20190901
+    runid = 20190901
 
     # runid = 20190904
     #params: ww=256, wh=128, sw=20, sh=20, kw=128, kh=64
@@ -40,7 +40,7 @@ if proj == "CSK-Rutford":
 
     # runid = 20190921
     # params: ww=128, wh=64, sw=20, sh=20, kw=64, kh=32
-    runid = 20190921
+    #runid = 20190921
 
     # runid = 20190925
     # params: ww=64, wh=64, sw=20, sh=20, kw=32, kh=32
@@ -52,7 +52,21 @@ elif proj=="CSK-Evans":
     workdir = "/net/kraken/nobak/mzzhong/CSK-Evans"
     runid = 20180712
 
-steplist = ['init','create','crop','master','focus_split','geo2rdr_coarseResamp','dense_offset','postprocess','focus_all','geocode','plot_geocoded','create_stack']
+# postprocessing version control
+# version
+#version="v12"
+
+version="v13"
+# maxday=12 for CSK data
+
+#if os.path.exists("runid_and_version.txt"):
+#    f = open("runid_and_version.txt")
+#    lines = f.readlines()
+#    line = lines[0]
+#    runid, version = line.split()
+#    runid = int(runid)
+
+steplist = ['init','create','crop','master','focus_split','geo2rdr_coarseResamp','dense_offset','postprocess', 'check_dense_offset', 'focus_all','geocode','plot_offsetfield','create_stack']
 nprocess = {}
 nprocess['init'] = 1
 nprocess['create'] = 1
@@ -60,16 +74,17 @@ nprocess['crop'] = 8
 nprocess['master'] = 1
 nprocess['focus_split'] = 8
 nprocess['geo2rdr_coarseResamp'] = 1
-nprocess['dense_offset'] = 6
+nprocess['dense_offset'] = 4
 nprocess['postprocess'] = {'geometry':1, 'maskandfilter': 12}
+nprocess['check_dense_offset'] = 1
 nprocess['focus_all'] = 8
 nprocess['geocode'] = 8
-nprocess['plot_geocoded'] = 1
+nprocess['plot_offsetfield'] = 10
 nprocess['create_stack'] = 1
 
 def createParser():
 
-    parser = argparse.ArgumentParser( description='control the running of the stacks step list: [init(0), create(1), crop(2), master(3), focus_split(4), geo2rdr_coarseResamp(5), dense_offset(6), postprocess(7), focus_all(8), geocode(9), plot_geocoded(10), create_stack(11)]')
+    parser = argparse.ArgumentParser( description='control the running of the stacks step list: [init(0), create(1), crop(2), master(3), focus_split(4), geo2rdr_coarseResamp(5), dense_offset(6), postprocess(7), check_dense_offset(8), focus_all(9), geocode(10), plot_offsetfield(11), create_stack(12)]')
     
     parser.add_argument('-fs', dest='fs',type=int,default=0,help='the first track')
     parser.add_argument('-ls', dest='ls',type=int,default=0,help='the last track')
@@ -89,7 +104,6 @@ def createParser():
 def cmdLineParse(iargs = None):
     parser = createParser()
     return parser.parse_args(args=iargs)
-
 
 def init(name, workdir):
     
@@ -287,22 +301,25 @@ def main(iargs=None):
     for step in range(first,last+1):
 
         stepname = steplist[step]
-        
+
         # loop through the tracks
         if stepname == 'dense_offset':
-            offset = dense_offset(stack=stack, workdir = workdir, nproc = nprocess['dense_offset'], runid=runid, exe=inps.exe)
+            offset = dense_offset(stack=stack, workdir = workdir, nproc = nprocess['dense_offset'], runid=runid, version=version, exe=inps.exe)
         
         if stepname == 'postprocess':
-            offset = dense_offset(stack=stack, workdir = workdir, nproc = nprocess['postprocess'], runid=runid, exe=inps.exe)
+            offset = dense_offset(stack=stack, workdir = workdir, nproc = nprocess['postprocess'], runid=runid, version=version, exe=inps.exe)
+
+        if stepname == 'check_dense_offset':
+            offset = dense_offset(stack=stack, workdir = workdir, nproc = nprocess['check_dense_offset'], runid=runid, version=version, exe=inps.exe)
 
         if stepname == 'geocode':
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['geocode'], runid=runid, exe = inps.exe)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['geocode'], runid=runid, version=version, exe = inps.exe)
 
-        if stepname == 'plot_geocoded':
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['plot_geocoded'], runid=runid, exe = inps.exe)
+        if stepname == 'plot_offsetfield':
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['plot_offsetfield'], runid=runid, version=version, exe = inps.exe)
 
         if stepname == 'create_stack':
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['create_stack'], runid=runid, exe = inps.exe)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['create_stack'], runid=runid, version=version, exe = inps.exe)
 
         for i in tracks:
 
@@ -322,10 +339,6 @@ def main(iargs=None):
                 # in case the folder doesn't exist
                 if os.path.exists(name) == False:
                     continue
-
-                #print(step)
-                #print(nprocess[steplist[step]])
-                # controled by run_files
 
                 print(stepname)
                 if stepname == 'init':
@@ -356,17 +369,20 @@ def main(iargs=None):
                     offset.initiate(trackname = name)
                     offset.postprocess()
 
+                elif stepname == 'check_dense_offset':
+                    offset.initiate(trackname = name)
+                    offset.run_check_offset_track()
+
                 elif steplist[step] == 'geocode':
                     
                     offset.initiate(trackname = name)
                     offset.geocode()
 
-                elif steplist[step] == 'plot_geocoded':
+                elif steplist[step] == 'plot_offsetfield':
                     
                     offset.initiate(trackname = name)
                     last = (i == tracks[-1])
-                    #offset.plot_geocoded(label='all', last = last)
-                    offset.plot_geocoded(label='separate')
+                    offset.plot_offsetfield()
 
                 elif steplist[step] == 'create_stack':
                     

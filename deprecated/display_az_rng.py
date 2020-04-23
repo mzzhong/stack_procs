@@ -11,8 +11,8 @@ pkl_name = sys.argv[1]
 with open(pkl_name, "rb") as f:
     filtered_offset = pickle.load(f)
 
-azOff   = filtered_offset['filtered_azOffset']    
-rngOff  = filtered_offset['filtered_rngOffset']   
+azOff   = filtered_offset['azOffset_filtered']    
+rngOff  = filtered_offset['rngOffset_filtered']   
 azOff_re      = filtered_offset['refer_azOffset']       
 rngOff_re     = filtered_offset['refer_rngOffset']      
 azOff_cmp            = filtered_offset['raw_azOffset']             
@@ -27,19 +27,14 @@ pad = 0.2
 # Ranges of values.
 
 ### Plot azimuth offset. ###
-if "az_vmin" in filtered_offset:
-    vmin10 = filtered_offset["az_vmin"]
-    vmax10 = filtered_offset["az_vmax"]
-else:
+vmin = np.nanmin(azOff_re)
+vmax = np.nanmax(azOff_re)
 
-    vmin = np.nanmin(azOff_re)
-    vmax = np.nanmax(azOff_re)
-    
-    vmax = max(abs(vmin), abs(vmax))
-    vmin = - vmax
-    
-    vmin10 = np.floor(vmin*10)/10 - pad
-    vmax10 = np.ceil(vmax*10)/10 + pad
+vmin = - max(abs(vmin), abs(vmax))
+vmax =   max(abs(vmin), abs(vmax))
+
+vmin10 = np.floor(vmin*10)/10- pad
+vmax10 = np.ceil(vmax*10)/10 + pad
 
 fig, axs = plt.subplots(1,6, sharey=True, figsize=(24,15))
 
@@ -71,24 +66,14 @@ fig.colorbar(im,ax=ax,fraction=frac, pad=padbar, shrink=shrink, orientation='hor
 ax.set_xlabel("offset index")
 
 ### Plot range offset. ###
+vmin = np.nanmin(rngOff_re)
+vmax = np.nanmax(rngOff_re)
 
-if "rng_vmin" in filtered_offset:
-    vmin10 = filtered_offset["rng_vmin"]
-    vmax10 = filtered_offset["rng_vmax"]
-else:
+vmin = - max(abs(vmin), abs(vmax))
+vmax =   max(abs(vmin), abs(vmax))
 
-    vmin = np.nanmin(rngOff_re)
-    vmax = np.nanmax(rngOff_re)
-    
-    vmax = max(abs(vmin), abs(vmax))
-    vmin = - vmax
-    
-    vmin10 = np.floor(vmin*10)/10 - pad
-    vmax10 = np.ceil(vmax*10)/10 + pad
-
-    vmin10 = -0.1
-    vmax10 = 0.1
-
+vmin10 = np.floor(vmin*10)/10-pad
+vmax10 = np.ceil(vmax*10)/10+pad
 tickstep=(vmax10-vmin10)/4
 
 #ax = fig.add_subplot(164)

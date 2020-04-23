@@ -1,3 +1,6 @@
+# ignore rules
+
+# temp files
+*~
+__pycache__
 *.swp
-*.o
-*.txt

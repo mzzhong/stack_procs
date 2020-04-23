@@ -56,6 +56,12 @@ def createParser():
     parser.add_argument('--dstnodata', dest='dstnodata', type=str, default="0",
             help='invalid data in dst file')
 
+    parser.add_argument('--prefix', dest='prefix', type=str, default="gc",
+            help='prefix of geocoded file')
+
+    parser.add_argument('--suffix', dest='suffix', type=str, default="",
+            help='suffix of geocoded file')
+
     return parser
 
 def cmdLineParse(iargs = None):
@@ -159,6 +165,8 @@ def writeVRT(infile, latFile, lonFile):
             data.tail = '\n'
             tree.write(infile + '.vrt')
 
+            #print(stop)
+
 
 def runGeo(inps):
 
@@ -216,11 +224,21 @@ def runGeo(inps):
                # Number of bands
                ds = gdal.Open(rfile)
                bands = ds.RasterCount
-        
-               outname = os.path.join(folder,'gc_'+filename)
+
+               filebasename, ending = filename.split(".")
+
+               outfilename = inps.prefix + "_" + filebasename
+               if inps.suffix!="":
+                    outfilename = outfilename + "_" + inps.suffix
+
+               outfilename = outfilename + "." + ending
+
+               outname = os.path.join(folder, outfilename)
+
                if outname.split('.')[-1] in ['bil','bip','BIL','BIP'] and bands>1:
                   outname = ''.join(outname.split('.')[0:-1])+'.bsq'
-               print(outname)
+               print("outname: ", outname)
+               #return
         
                if bands == 1:
                   srcnodata = '"' + inps.srcnodata + '"'
@@ -249,7 +267,7 @@ def runGeo(inps):
             if os.path.exists(outname) and os.path.exists(outname + '.xml') and os.path.exists(outname + '.vrt'):
                 success = True
         except:
-                time.sleep(1)
+            time.sleep(1)
 
 def getSize(f):
 
