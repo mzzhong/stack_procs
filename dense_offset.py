@@ -124,7 +124,7 @@ class dense_offset():
                 self.master_suffix = '.raw.slc'
                 self.slave_suffix = '.slc'
 
-                self.maxday = 12
+                self.maxday = 8
 
                 # create the simplest doc object
                 # 2019* CSK
@@ -2350,6 +2350,8 @@ class dense_offset():
 
                 # Conversion
                 os.system(cmd2)
+            else:
+                print("Not executed")
 
             # Wait here until finish
             time.sleep(1)
@@ -2377,10 +2379,13 @@ class dense_offset():
                 azOffset = os.path.join(doc.offset_folder, 'filtAzimuth_' + self.filt_suffix + '.off')
                 rngOffset = os.path.join(doc.offset_folder, 'filtRange_' + self.filt_suffix + '.off')
 
-                # The covariance file to be geocoded
                 offset_outprefix = os.path.join(doc.offset_folder,doc.outprefix)
 
+                # The covariance file to be geocoded
                 covfile = offset_outprefix + '_run_' + str(doc.runid) + '_cov.bip'
+
+                # The snr file to be geocoded
+                snrfile = offset_outprefix + '_run_' + str(doc.runid) + '_snr.bip'
 
                 if not os.path.exists(azOffset) or not os.path.exists(rngOffset):
                     print("The filtered offset field file doesn't exist")
@@ -2391,12 +2396,6 @@ class dense_offset():
                 gc_azOffset = os.path.join(doc.offset_folder, 'gc_filtAzimuth_' + self.filt_suffix + '.off')
                 gc_rngOffset = os.path.join(doc.offset_folder, 'gc_filtRange_' + self.filt_suffix + '.off')
 
-                forceDo = False
-                
-                #if not os.path.exists(gc_azOffset) or not os.path.exists(gc_rngOffset):
-                #    print("The geocoded files do not exist!")
-                #    print("work on :", offsetfield)
-                #    forceDo = True
 
                 #resamplingMethod = "near"
                 resamplingMethod = "bilinear"
@@ -2408,15 +2407,29 @@ class dense_offset():
                 # geocode covariance file
                 cmd3 = 'geocodeGdal.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + covfile + ' -b ' + bbox_SNWE + ' -r ' + resamplingMethod + ' --suffix ' + self.version
 
+                # geocode SNR file
+                cmd4 = 'geocodeGdal.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + snrfile + ' -b ' + bbox_SNWE + ' -r ' + resamplingMethod + ' --suffix ' + self.version
+
+
                 # Parallel computing is problematic (seems to be fixed).
+
+                forceDo = False
+                #if not os.path.exists(gc_azOffset) or not os.path.exists(gc_rngOffset):
+                #    print("The geocoded files do not exist!")
+                #    print("work on :", offsetfield)
+                #    forceDo = True
 
                 # check if we should do it
                 if self.exe or forceDo:
+                    # Remove the old files
                     os.system('rm ' + doc.offset_folder + '/gc*' + str(doc.runid) + "*" + self.version + "*")
                     os.system('rm ' + doc.offset_folder + '/*temp*')
-                
+
+                    # Run the new commands
                     func =  globals()['run_denseoffset_bash']
-                    p = Process(target=func, args=([cmd1,cmd2,cmd3], (self.exe or forceDo)))
+                    p = Process(target=func, args=([cmd1,cmd2,cmd3,cmd4], (self.exe or forceDo)))
+                    #p = Process(target=func, args=([cmd4], (self.exe or forceDo)))
+
                     self.jobs.append(p)
                     p.start()
  
@@ -2436,6 +2449,8 @@ class dense_offset():
                     print(cmd1)
                     print(cmd2)
                     print(cmd3)
+                    print(cmd4)
+                    print("Not executed")
 
             return 0
 

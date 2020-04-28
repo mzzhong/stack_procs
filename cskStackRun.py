@@ -54,9 +54,9 @@ elif proj=="CSK-Evans":
 
 # postprocessing version control
 # version
-#version="v12"
+version="v12"
 
-version="v13"
+#version="v13"
 # maxday=12 for CSK data
 
 #if os.path.exists("runid_and_version.txt"):
