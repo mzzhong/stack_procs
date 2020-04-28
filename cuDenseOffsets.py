@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 
-# Author: Minyan Zhong 
-import numpy as np 
+# Author: Minyan Zhong, Lijun Zhu 
+
 import argparse
 import os
 import isce
 import isceobj
-import shelve
-import datetime
-from isceobj.Location.Offset import OffsetField
-from iscesys.StdOEL.StdOELPy import create_writer
 from isceobj.Util.decorators import use_api
 
+import numpy as np 
 from PyCuAmpcor import PyCuAmpcor
 
 def createParser():
@@ -57,8 +54,6 @@ def createParser():
     parser.add_argument('--nwdc', type=int, dest='numWinDownInChunk', default=1,
             help='Number of Window Down in Chunk')
 
-
-
     parser.add_argument('-op','--outprefix', type=str, dest='outprefix', default='dense_ampcor', required=True,
             help='Output prefix')
 
@@ -86,7 +81,6 @@ def createParser():
     parser.add_argument('-gid', '--gpuid', dest='gpuid', type=int, default=-1
        , help='GPU ID')
 
-
     return parser
 
 def cmdLineParse(iargs = None):
@@ -113,7 +107,6 @@ def estimateOffsetField(master, slave, inps=None):
     sar.setAccessMode('READ')
     sar.createImage()
 
-
     width = sar.getWidth()
     length = sar.getLength()
 
@@ -123,7 +116,6 @@ def estimateOffsetField(master, slave, inps=None):
     objOffset.deviceID = inps.gpuid  # -1:let system find the best GPU
     objOffset.nStreams =   1 #cudaStreams 
     objOffset.derampMethod = inps.deramp
-    print('deramp method: ', objOffset.derampMethod)
 
     objOffset.masterImageName = master
     objOffset.masterImageHeight = length
@@ -144,22 +136,16 @@ def estimateOffsetField(master, slave, inps=None):
     if (inps.numWinAcross != -1):
         objOffset.numberWindowAcross = inps.numWinAcross
 
-
-    print("nlines: ",objOffset.numberWindowDown)
-    print("ncolumns: ",objOffset.numberWindowAcross)
-
+    print("offset field length: ",objOffset.numberWindowDown)
+    print("offset field width: ",objOffset.numberWindowAcross)
 
     # window size
     objOffset.windowSizeHeight = inps.winhgt
     objOffset.windowSizeWidth = inps.winwidth
     
-    print(objOffset.windowSizeHeight)
-    print(objOffset.windowSizeWidth)
- 
     # search range
     objOffset.halfSearchRangeDown = inps.srchgt
     objOffset.halfSearchRangeAcross = inps.srcwidth
-    print(inps.srchgt,inps.srcwidth)
 
     # starting pixel
     objOffset.masterStartPixelDownStatic = inps.margin
@@ -172,16 +158,12 @@ def estimateOffsetField(master, slave, inps=None):
     # oversampling
     objOffset.corrSufaceOverSamplingMethod = 0
     objOffset.corrSurfaceOverSamplingFactor = inps.oversample
-    print(inps.oversample)
 
-    #objOffset.rawDataOversamplingFactor = 4
-    
     # output filenames
     objOffset.offsetImageName = str(inps.outprefix) + str(inps.outsuffix) + '.bip'
     objOffset.grossOffsetImageName = str(inps.outprefix) + str(inps.outsuffix) + '_gross.bip'
     objOffset.snrImageName = str(inps.outprefix) + str(inps.outsuffix) + '_snr.bip'
     objOffset.covImageName = str(inps.outprefix) + str(inps.outsuffix) + '_cov.bip'
-
 
     print("offsetfield: ",objOffset.offsetImageName)
     print("gross offsetfield: ",objOffset.grossOffsetImageName)
@@ -189,15 +171,9 @@ def estimateOffsetField(master, slave, inps=None):
     print("cov: ",objOffset.covImageName)
 
     offsetImageName = objOffset.offsetImageName.decode('utf8')
-    #print(type(offsetImageName))
-    #print(offsetImageName)
-    #print(type(objOffset.numberWindowAcross))
     grossOffsetImageName = objOffset.grossOffsetImageName.decode('utf8')
     snrImageName = objOffset.snrImageName.decode('utf8')
     covImageName = objOffset.covImageName.decode('utf8')
-
-    print(offsetImageName)
-    print(inps.redo)
 
     if os.path.exists(offsetImageName) and inps.redo==0:
 
@@ -214,16 +190,14 @@ def estimateOffsetField(master, slave, inps=None):
     
     ## Set Gross Offset ###
     if inps.gross == 0:
-        grossDown=0
-        grossAcross=0
         print("Set constant grossOffset")
-        print("Please override the zero grossDown and grossAcross here")
         print("By default, the gross offsets are zero")
-        objOffset.setConstantGrossOffset(grossDown, grossAcross)
+        print("You can override the default values here")
+        objOffset.setConstantGrossOffset(0, 0)
     else:
         print("Set varying grossOffset")
-        print("Please override the zero grossDown and grossAcross array here")
         print("By default, the gross offsets are zero")
+        print("You can override the default grossDown and grossAcross arrays here")
         objOffset.setVaryingGrossOffset(np.zeros(shape=grossDown.shape,dtype=np.int32), np.zeros(shape=grossAcross.shape,dtype=np.int32))
    
     # check 
