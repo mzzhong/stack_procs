@@ -816,6 +816,7 @@ class dense_offset():
             gpuid = self.doc_count % self.nproc + (8-self.nproc)
             print(gpuid)
             
+            gpuAmpcor_driver = "/net/kamb/ssd-tmp1/mzzhong/insarRoutines/stack_procs/cuDenseOffsets_dev.py" 
 
             run_file = offset_folder + '/gpurun' + '_' + str(doc.runid) + '.sh'
             f = open(run_file,'w')
@@ -845,7 +846,7 @@ class dense_offset():
             f.write('outsuffix='+suffix+ '\n')
 
             f.write('rm ' + '$outprefix$outsuffix' + '*\n')
-            f.write('cuDenseOffsets.py --master $master --slave $slave --ww $ww --wh $wh --sw $sw --sh $sh --mm $mm --kw $kw --kh $kh --gross $gross --outprefix $outprefix --outsuffix $outsuffix --deramp $deramp --gpuid $gpuid --nwac $nwac --nwdc $nwdc --oo $oo \n')
+            f.write(gpuAmpcor_driver + ' --master $master --slave $slave --ww $ww --wh $wh --sw $sw --sh $sh --mm $mm --kw $kw --kh $kh --gross $gross --outprefix $outprefix --outsuffix $outsuffix --deramp $deramp --gpuid $gpuid --nwac $nwac --nwdc $nwdc --oo $oo \n')
 
             f.close()
 

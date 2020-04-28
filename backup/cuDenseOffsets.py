@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-# Author: Minyan Zhong 
+# author: Minyan Zhong 
+
 import numpy as np 
 import argparse
 import os
@@ -10,9 +11,15 @@ import shelve
 import datetime
 from isceobj.Location.Offset import OffsetField
 from iscesys.StdOEL.StdOELPy import create_writer
-from isceobj.Util.decorators import use_api
+#from mroipac.ampcor.DenseAmpcor import DenseAmpcor
 
 from PyCuAmpcor import PyCuAmpcor
+from grossOffsets import grossOffsets
+
+#from isceobj.Utils.denseoffsets import denseoffsets
+from isceobj.Util.decorators import use_api
+
+from pprint import pprint
 
 def createParser():
     '''
@@ -98,21 +105,21 @@ def cmdLineParse(iargs = None):
 @use_api
 def estimateOffsetField(master, slave, inps=None):
 
-    import pathlib
+    #import pathlib
 
     ###Loading the slave image object
     sim = isceobj.createSlcImage()
-    sim.load(pathlib.Path(slave).with_suffix('.xml'))
+    #sim.load(pathlib.Path(slave).with_suffix('.xml'))
+    sim.load(slave+'.xml')
     sim.setAccessMode('READ')
     sim.createImage()
 
-
     ###Loading the master image object
     sar = isceobj.createSlcImage()
-    sar.load(pathlib.Path(master).with_suffix('.xml'))
+    #sar.load(pathlib.Path(master).with_suffix('.xml'))
+    sar.load(master + '.xml')
     sar.setAccessMode('READ')
     sar.createImage()
-
 
     width = sar.getWidth()
     length = sar.getLength()
@@ -207,24 +214,55 @@ def estimateOffsetField(master, slave, inps=None):
     # generic control
     objOffset.numberWindowDownInChunk = inps.numWinDownInChunk
     objOffset.numberWindowAcrossInChunk = inps.numWinAcrossInChunk
-    objOffset.useMmap = 0
     objOffset.mmapSize = 8
 
     objOffset.setupParams()
     
     ## Set Gross Offset ###
+
     if inps.gross == 0:
-        grossDown=0
-        grossAcross=0
-        print("Set constant grossOffset")
-        print("Please override the zero grossDown and grossAcross here")
-        print("By default, the gross offsets are zero")
-        objOffset.setConstantGrossOffset(grossDown, grossAcross)
+        objOffset.setConstantGrossOffset(0, 0)
     else:
-        print("Set varying grossOffset")
-        print("Please override the zero grossDown and grossAcross array here")
-        print("By default, the gross offsets are zero")
-        objOffset.setVaryingGrossOffset(np.zeros(shape=grossDown.shape,dtype=np.int32), np.zeros(shape=grossAcross.shape,dtype=np.int32))
+
+        print("Setting up grossOffset...")
+
+        objGrossOff = grossOffsets()
+        
+        objGrossOff.setXSize(width)
+        objGrossOff.setYize(length)
+        objGrossOff.setMargin(inps.margin)
+        objGrossOff.setWinSizeHgt(inps.winhgt)
+        objGrossOff.setWinSizeWidth(inps.winwidth)
+        objGrossOff.setSearchSizeHgt(inps.srchgt)
+        objGrossOff.setSearchSizeWidth(inps.srcwidth)
+        objGrossOff.setSkipSizeHgt(inps.skiphgt)
+        objGrossOff.setSkipSizeWidth(inps.skipwidth)
+        objGrossOff.setLatFile(inps.lat)
+        objGrossOff.setLonFile(inps.lon)
+        objGrossOff.setLosFile(inps.los)
+        objGrossOff.setMasterFile(inps.masterxml)
+        objGrossOff.setbTemp(inps.bTemp)
+        
+        grossDown, grossAcross = objGrossOff.runGrossOffsets()
+    
+        # change nan to 0
+        grossDown = np.nan_to_num(grossDown)
+        grossAcross = np.nan_to_num(grossAcross)
+    
+        print("Before plotting the gross offsets (min and max): ", np.nanmin(grossDown),np.nanmax(grossDown))
+        print("Before plotting the gross offsets (min and max): ", np.rint(np.nanmin(grossDown)),np.rint(np.nanmax(grossDown)))
+    
+        grossDown = np.int32(np.rint(grossDown.ravel()))
+        grossAcross = np.int32(np.rint(grossAcross.ravel()))
+    
+        print(np.amin(grossDown), np.amax(grossDown))
+        print(np.amin(grossAcross), np.amax(grossAcross))
+    
+        print(grossDown.shape)
+        print(grossDown.shape)
+    
+        objOffset.setVaryingGrossOffset(grossDown, grossAcross)
+        #objOffset.setVaryingGrossOffset(np.zeros(shape=grossDown.shape,dtype=np.int32), np.zeros(shape=grossAcross.shape,dtype=np.int32))
    
     # check 
     objOffset.checkPixelInImageRange()
@@ -241,6 +279,11 @@ def estimateOffsetField(master, slave, inps=None):
  
     # Finalize the results
     # offsetfield
+
+    #file1 = open('/net/jokull/nobak/mzzhong/S1-Evans/1.txt','w')
+    #file1.write('123')
+    #file1.close()
+
     outImg = isceobj.createImage()
     outImg.setDataType('FLOAT')
     outImg.setFilename(offsetImageName)

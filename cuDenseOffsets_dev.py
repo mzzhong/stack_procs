@@ -105,24 +105,21 @@ def cmdLineParse(iargs = None):
 @use_api
 def estimateOffsetField(master, slave, inps=None):
 
-    import pathlib
+    #import pathlib
 
     ###Loading the slave image object
     sim = isceobj.createSlcImage()
-    sim.load(pathlib.Path(slave).with_suffix('.xml'))
-    #sim.load(slave+'.xml')
+    #sim.load(pathlib.Path(slave).with_suffix('.xml'))
+    sim.load(slave+'.xml')
     sim.setAccessMode('READ')
     sim.createImage()
 
-
     ###Loading the master image object
     sar = isceobj.createSlcImage()
-    sar.load(pathlib.Path(master).with_suffix('.xml'))
-    print(pathlib.Path(master).with_suffix('.xml'))
-    #sar.load(master + '.xml')
+    #sar.load(pathlib.Path(master).with_suffix('.xml'))
+    sar.load(master + '.xml')
     sar.setAccessMode('READ')
     sar.createImage()
-
 
     width = sar.getWidth()
     length = sar.getLength()
@@ -217,7 +214,6 @@ def estimateOffsetField(master, slave, inps=None):
     # generic control
     objOffset.numberWindowDownInChunk = inps.numWinDownInChunk
     objOffset.numberWindowAcrossInChunk = inps.numWinAcrossInChunk
-    objOffset.useMmap = 0
     objOffset.mmapSize = 8
 
     objOffset.setupParams()
