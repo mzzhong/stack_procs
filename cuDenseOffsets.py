@@ -9,7 +9,7 @@ import isceobj
 from isceobj.Util.decorators import use_api
 
 import numpy as np 
-from PyCuAmpcor import PyCuAmpcor
+from contrib.PyCuAmpcor.PyCuAmpcor import PyCuAmpcor
 
 def createParser():
     '''
