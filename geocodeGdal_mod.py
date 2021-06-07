@@ -270,7 +270,7 @@ def runGeo(inps):
             time.sleep(1)
 
 def getSize(f):
-
+    
     ds=gdal.Open(f, gdal.GA_ReadOnly)
     b=ds.GetRasterBand(1)
     width = b.XSize

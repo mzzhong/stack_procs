@@ -1,0 +1,36 @@
+dense_offset.py
+
+### Version for csk-r
+# v10: use _offset_filter_v2
+# The mis-coregistration is assumed to be a constant, stationary is criterion is set to 0.05
+
+#version = 'v11'
+#thrs_default=0.1
+# v11: use _offset_filter_v2
+# The mis-coregistration is assumed to be a constant, stationary is criterion is set to 0.1
+
+#version = 'v12'
+#thrs_default=0.05
+# v12: use _offset_filter_v2
+# The mis-coregistration is assumed to be a plane (first order), stationary criterion is set to 0.1
+# The mis-coregistration is derived from 20190901
+
+
+New comments
+cskStackRun.py
+
+# postprocessing version control
+# version
+version="v12"
+constant miscoregis, thrs_default=0.05
+
+#version="v13"
+# maxday=12 for CSK data
+
+### Version for S1-Evans
+# version = 'v10' (by 2020.2)
+# version = 'v11' (2020.6)
+thrs_default=0.05
+# version = 'v12'
+thres_default=0.05
+do constant miscoregistration correction

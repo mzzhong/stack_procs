@@ -17,7 +17,6 @@ import argparse
 
 from dense_offset import dense_offset
 
-
 # Time and dates.
 fmt = '%Y%m%d'
 today  = datetime.datetime.now().strftime(fmt)
@@ -33,29 +32,84 @@ S1Astart_dt = datetime.datetime.strptime(S1Astart, '%Y%m%d')
 S1Bstart = '20160501'
 S1Bstart_dt = datetime.datetime.strptime(S1Bstart, '%Y%m%d')
 
+## Set up the project and runid
+proj_name = "S1-Evans"
+#proj_name = 'LA_Basin'
+
+if proj_name == "S1-Evans":
+    stack = 'tops'
+    old_workdir = '/net/kraken/nobak/mzzhong/S1-Evans'
+    workdir = '/net/kraken/nobak/mzzhong/S1-Evans-v2'
+
+    # runid = 20180703
+    # params: ww=256 wh=128 sw=10 sh=10 kw=128 kh=64
+    #runid = 20180703
+
+    # runid = 20200101
+    # params: ww=256 wh=128 sw=10 sh=10 kw=128 kh=64
+    # run with new GPU ampcor
+    #runid = 20200101
+
+    # runid = 20200102
+    # params: ww=480 wh=128 sw=10 sh=10 kw=256 kh=64
+    # run with new GPU ampcor
+    #runid = 20200102
+
+    # runid = 20200103
+    # params: ww=480 wh=120 sw=10 sh=10 kw=240 kh=60
+    # run with new gpu ampcor that fixes uncertainty estimation
+    #runid = 20200103
+
+    # runid = 20200104
+    # params: ww=480 wh=120 sw=10 sh=10 kw=240 kh=60
+    # run with new gpu ampcor thats allows large chip size 
+    # and some small fixes in uncertainty estimation
+    # e.g. change covariance invalid value from 99 to 0 
+    # (2021.05.11)
+    #runid = 20200104
+
+    # runid = 20200105
+    # params: ww=960 wh=240 sw=10 sh=10 kw=240 kh=60
+    # run with new gpu ampcor (exp_6)
+    runid = 20200105
+
+elif proj_name == "RC":
+    stack = 'tops_RC'
+    workdir = '/net/kraken/nobak/mzzhong/RC_denseOffsets'
+    runid = 20190725
+
+elif proj_name == "LA_Basin":
+    stack = 'tops_LA_Basin'
+    workdir = '/net/kraken/nobak/mzzhong/LA_Basin'
+    runid = 20201001
+    # ww = 128 wh = 32 kw = 64 kh = 32 sw=10 sh = 10, os = 64
+else:
+    raise Exception("Unknown project name")
+
+# Version
+version='v12'
 
 # Steps and processors.
-
-steplist = ['init','create','unpack_slc_topo_master', 'average_baseline', 'geo2rdr_resample', 'extract_stack_valid_region', 'merge_master_slave_slc', 'dense_offsets', 'postprocess','geocode','show_doc','plot_geocoded','create_stack']
+steplist = ['init','create','unpack_slc_topo_master', 'average_baseline', 'geo2rdr_resample', 'extract_stack_valid_region', 'merge_master_slave_slc', 'dense_offsets', 'postprocess','geocode','plot_offsetfield','create_stack','show_doc']
 nprocess = {}
 
 nprocess['init'] = 1
 nprocess['create'] = 1
 nprocess['unpack_slc_topo_master'] = 8
-nprocess['average_baseline'] = 16
-nprocess['geo2rdr_resample'] = 2
+nprocess['average_baseline'] = 12
+nprocess['geo2rdr_resample'] = 3
 nprocess['extract_stack_valid_region'] = 1
 nprocess['merge_master_slave_slc'] = 1
-nprocess['dense_offsets'] = 7
+nprocess['dense_offsets'] = 6
 nprocess['postprocess'] = {'geometry':1, 'maskandfilter': 12}
 nprocess['geocode'] = 8
-nprocess['show_doc'] = 1
-nprocess['plot_geocoded'] = 1
+nprocess['plot_offsetfield'] = 12
 nprocess['create_stack'] = 1
+nprocess['show_doc'] = 1
 
 def createParser():
 
-    parser = argparse.ArgumentParser( description='control the running of the stacks step list: [init(0), create(1), unpack_slc_topo_master(2), average_baseline(3), geo2rdr_resample(4), extract_stack_valid_region(5), merge_master_slave_slc(6), dense_offsets(7), postprocess(8), geocode(9), show_doc(10), plot_geocoded(11), create_stack(12)]')
+    parser = argparse.ArgumentParser( description='control the running of the stacks step list: [init(0), create(1), unpack_slc_topo_master(2), average_baseline(3), geo2rdr_resample(4), extract_stack_valid_region(5), merge_master_slave_slc(6), dense_offsets(7), postprocess(8), geocode(9),  plot_offsetfield(10), create_stack(11), show_doc(12)]')
     
     parser.add_argument('-t', '--tracks', dest='tracks',type=str,help='tracks to process(comma separated)',default=None)
     parser.add_argument('-p', '--pairs', dest='pairs',type=str,help='pairs to process(comma separated)',default=None)
@@ -123,13 +177,11 @@ def check_exist(step,line):
     start = None
     end = None
 
-
     if step == 5:
         return (exist, start, end)
 
     config_file = line.split(' ')[-1]
     config_file = config_file[0:-1]
-
 
     f = open(config_file)
     if steplist[step] == 'unpack_slc_topo_master':
@@ -298,32 +350,6 @@ def main(iargs=None):
     s_date = datetime.datetime.strptime(inps.s_date, fmt)
     e_date = datetime.datetime.strptime(inps.e_date, fmt)
 
-    ## Set up the project.
-    proj_name = "S1-Evans"
-
-    if proj_name == "S1-Evans":
-        stack = 'tops'
-        workdir = '/net/jokull/nobak/mzzhong/S1-Evans'
-
-        # runid = 20180703
-        # params: ww=256 wh=128 sw=10 sh=10 kw=128 kh=64
-        #runid = 20180703
-
-        # runid = 20200101
-        # params: ww=256 wh=128 sw=10 sh=10 kw=128 kh=64
-        # run with new GPU ampcor
-        #runid = 20200101
-
-        # runid = 20200102
-        # params: ww=512 wh=128 sw=10 sh=10 kw=256 kh=64
-        # run with new GPU ampcor
-        runid = 20200102
-
-
-    elif proj_name == "RC":
-        stack = 'tops_RC'
-        workdir = '/net/kraken/nobak/mzzhong/RC_denseOffsets'
-        runid = 20190725
 
     # Used for simple multithread-processing.
     count = 0
@@ -336,27 +362,27 @@ def main(iargs=None):
 
         if stepname == 'dense_offsets':
 
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['dense_offsets'], runid = runid, exe = inps.exe)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['dense_offsets'], runid = runid, version=version, exe = inps.exe)
 
         if stepname == 'postprocess':
 
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['postprocess'], runid = runid, exe = inps.exe)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['postprocess'], runid = runid, version=version, exe = inps.exe)
 
         if stepname == 'geocode':
 
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['geocode'], runid=runid, exe = inps.exe)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['geocode'], runid=runid, version=version, exe = inps.exe)
 
-        if stepname == 'show_doc':
+        if stepname == 'plot_offsetfield':
             
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['show_doc'],runid = runid, exe = False)
-
-        if stepname == 'plot_geocoded':
-            
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['plot_geocoded'],runid = runid, exe = inps.exe)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['plot_offsetfield'],runid = runid, version=version, exe = inps.exe)
 
         if stepname == 'create_stack':
 
-            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['create_stack'], runid=runid, exe = inps.exe)
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['create_stack'], runid=runid, version=version, exe = inps.exe)
+
+        if stepname == 'show_doc':
+            
+            offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['show_doc'],runid = runid, version=version, exe = False)
 
 
         # loop through the targes
@@ -365,20 +391,16 @@ def main(iargs=None):
 
             if pairs:
                 name = name+'_pairs' +'/' + pairs[0]
-                print(name)
+                print("track name: ", name)
  
             else:
-                print(name)
+                print("track name: ", name)
 
                 # in case the folder doesn't exist
                 if os.path.exists(name) == False:
                     continue
 
-                #print(step)
-                #print(nprocess[steplist[step]])
-                # controled by run_files
-
-                print(steplist[step])
+                print("current step: ", steplist[step])
                 if stepname == 'init' or stepname == 'create':
                     print('step init and step create are temporarily forbidden')
                     print(stop)
@@ -397,7 +419,7 @@ def main(iargs=None):
                         jobs = []
 
                 elif steplist[step] == 'dense_offsets':
-                    
+                   
                     offset.initiate(trackname = name)
                     offset.run_offset_track()
 
@@ -406,25 +428,26 @@ def main(iargs=None):
                     offset.initiate(trackname = name)
                     offset.postprocess(s_date=s_date,e_date=e_date)
 
-                elif steplist[step] == 'show_doc':
-                    
-                    offset.initiate(trackname = name)
-                    offset.show_doc()
 
                 elif steplist[step] == 'geocode':
                     
                     offset.initiate(trackname = name)
                     offset.geocode(s_date=s_date,e_date=e_date)
 
-                elif steplist[step] == 'plot_geocoded':
+                elif steplist[step] == 'plot_offsetfield':
                     
                     offset.initiate(trackname = name)
-                    offset.plot_geocoded()
+                    offset.plot_offsetfield()
 
                 elif steplist[step] == "create_stack":
 
                     offset.initiate(trackname = name)
                     offset.createOffsetFieldStack()
+
+                elif steplist[step] == 'show_doc':
+                    
+                    offset.initiate(trackname = name)
+                    offset.show_doc()
  
                 else:
                     cmd_file = os.path.join(name,'run_files','run_'+str(step-1)+'_'+steplist[step])

@@ -21,7 +21,7 @@ def medianfilter2d(matrix,kernel_size=5):
 
     padded[half:m+half, half:n+half] = matrix
 
-    # set np.nan value to be nulval
+    # set np.nan value to be nullval
     padded[np.isnan(padded)] = nullval
    
     # median filter

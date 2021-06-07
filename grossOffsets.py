@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-# Generate grossOffsets (pixel) based on velocity field.
+# Generate grossOffsets (pixel) based on Antarctic velocity model
 # Author: Minyan Zhong
-
-
 import numpy as np
 import pyproj
 import subprocess
@@ -11,35 +9,31 @@ import isceobj
 from iscesys.Component.ProductManager import ProductManager as PM
 import numpy as np
 from netCDF4 import Dataset
-#from mpl_toolkits.basemap import Basemap
 import gdal
+import pathlib
 
 from scipy.interpolate import interp2d, griddata
 from scipy import signal
 from scipy import ndimage
 
 import matplotlib.pyplot as plt
-
 import os
 
 class grossOffsets:
-
     def __init__(self, figpath=None, runid=None):
-        
         self.nfig = 1
         self.figsize = (10,10)
 
-        ## Antarctica Velocity File
-        self.vel_file = '/net/jokull/nobak/mzzhong/Ant_Data/velocity_models/antarctica_ice_velocity_900m.nc'
-        self.vel_file_v2 = '/home/mzzhong/jokull-nobak-net/Ant_Data/velocity_models/antarctica_ice_velocity_450m_v2.nc'
-
-        self.vProj = pyproj.Proj('+init=EPSG:3031')
-
         self.figpath = figpath
+        pathlib.Path(figpath).mkdir(exist_ok=True)
         self.runid = runid
 
-    def setMode(self,mode):
+        # Antarctica Velocity File #
+        self.vel_file = '/net/kraken/bak/mzzhong/Ant_Data/velocity_models/antarctica_ice_velocity_900m.nc'
+        self.vel_file_v2 = '/net/kraken/bak/mzzhong/Ant_Data/velocity_models/antarctica_ice_velocity_450m_v2.nc'
+        self.vProj = pyproj.Proj('+init=EPSG:3031')
 
+    def setMode(self,mode):
         if mode == 'interior' or mode == 'exterior':
             self.mode = mode
         else:
@@ -123,43 +117,16 @@ class grossOffsets:
         self.x0 = np.arange(-2800000,2800000,step=900)
         self.y0 = np.arange(-2800000,2800000,step=900)+200
 
-        #x,y = np.meshgrid(self.x0,self.y0)
-
-        #self.AntVeloDataMap = Basemap(width=5600000,height=5600000,\
-        #                        resolution='l',projection='stere',\
-        #                        lat_ts=-71,lat_0=-90,lon_0=0)
-
-        #self.vel_lon, self.vel_lat= self.vProj(x,y,inverse="true")
-
-
     def get_veloData_v2(self):
         
         print("getting velocity data...")
         fh=Dataset(self.vel_file_v2,mode='r')
         
-        #self.vx = fh.variables['VX'][:]
-        #self.vy = fh.variables['VY'][:]
-        
-        #self.vx = np.flipud(self.vx)
-        #self.vy = np.flipud(self.vy) 
-        
-        #self.v = np.sqrt(np.multiply(self.vx,self.vx)+np.multiply(self.vy,self.vy))
-        #print(self.v.shape)
-
-        # Set up the coordinates.
-        #self.x0 = fh.variables['x'][:]
-        #self.y0 = fh.variables['y'][:]
-
-        #print(self.x0)
-        #print(self.y0)
-        #print(stop)
-
-
-        dataset = gdal.Open("/net/jokull/nobak/mzzhong/Ant_Data/data-visualization/Ant_Velo_VX.tif", gdal.GA_ReadOnly)
+        dataset = gdal.Open("/net/kraken/bak/mzzhong/Ant_Data/data-visualization/FRIS_Velo_VX.tif", gdal.GA_ReadOnly)
         band = dataset.GetRasterBand(1)
         self.vx = band.ReadAsArray()
 
-        dataset = gdal.Open("/net/jokull/nobak/mzzhong/Ant_Data/data-visualization/Ant_Velo_VY.tif", gdal.GA_ReadOnly)
+        dataset = gdal.Open("/net/kraken/bak/mzzhong/Ant_Data/data-visualization/FRIS_Velo_VY.tif", gdal.GA_ReadOnly)
         band = dataset.GetRasterBand(1)
         self.vy = band.ReadAsArray()
 
@@ -170,7 +137,6 @@ class grossOffsets:
 
         self.x0 = np.arange(-2800000,2800000,step=450)
         self.y0 = np.arange(-2800000,2800000,step=450)+200
-
 
     def runGrossOffsets(self):
 
@@ -276,8 +242,8 @@ class grossOffsets:
                 inc[iwin,:] = incline[across_indices]
                 azi[iwin,:] = aziline[across_indices]
 
-            #print(iwin,': ',lon[iwin,:])
             #print(iwin,': ',lat[iwin,:])
+            #print(iwin,': ',lon[iwin,:])
             #print(iwin,': ',inc[iwin,:])
             #print(iwin,': ',azi[iwin,:])
 

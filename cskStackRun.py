@@ -13,68 +13,17 @@ import glob
 from multiprocessing import Process
 import argparse
 
-#from dense_offset import dense_offset
 from dense_offset import dense_offset
-
-proj = "CSK-Rutford"
-#proj = "CSK-Evans"
-
-# runid should be associated with a set up dense offset parameters
-# version should be associated post-filtering
-if proj == "CSK-Rutford":
-    # Set up the project.
-    stack = "stripmap"
-    workdir = "/net/kraken/nobak/mzzhong/CSK-Rutford"
-
-    # runid = 20190901
-    #params: ww=480, wh=240, sw=20, sh=20, kw=240, kh=120
-    runid = 20190901
-
-    # runid = 20190904
-    #params: ww=256, wh=128, sw=20, sh=20, kw=128, kh=64
-    #runid = 20190904
-
-    # runid = 20190908
-    # params: ww=128, wh=128, sw=20, sh=20, kw=64, kh=64
-    #runid = 20190908
-
-    # runid = 20190921
-    # params: ww=128, wh=64, sw=20, sh=20, kw=64, kh=32
-    #runid = 20190921
-
-    # runid = 20190925
-    # params: ww=64, wh=64, sw=20, sh=20, kw=32, kh=32
-    #runid = 20190925
-
-elif proj=="CSK-Evans":
-    # Set up the project.
-    stack = "stripmap"
-    workdir = "/net/kraken/nobak/mzzhong/CSK-Evans"
-    runid = 20180712
-
-# postprocessing version control
-# version
-version="v12"
-
-#version="v13"
-# maxday=12 for CSK data
-
-#if os.path.exists("runid_and_version.txt"):
-#    f = open("runid_and_version.txt")
-#    lines = f.readlines()
-#    line = lines[0]
-#    runid, version = line.split()
-#    runid = int(runid)
 
 steplist = ['init','create','crop','master','focus_split','geo2rdr_coarseResamp','dense_offset','postprocess', 'check_dense_offset', 'focus_all','geocode','plot_offsetfield','create_stack']
 nprocess = {}
 nprocess['init'] = 1
 nprocess['create'] = 1
-nprocess['crop'] = 8
+nprocess['crop'] = 1
 nprocess['master'] = 1
 nprocess['focus_split'] = 8
 nprocess['geo2rdr_coarseResamp'] = 1
-nprocess['dense_offset'] = 4
+nprocess['dense_offset'] = 6
 nprocess['postprocess'] = {'geometry':1, 'maskandfilter': 12}
 nprocess['check_dense_offset'] = 1
 nprocess['focus_all'] = 8
@@ -83,8 +32,9 @@ nprocess['plot_offsetfield'] = 10
 nprocess['create_stack'] = 1
 
 def createParser():
-
     parser = argparse.ArgumentParser( description='control the running of the stacks step list: [init(0), create(1), crop(2), master(3), focus_split(4), geo2rdr_coarseResamp(5), dense_offset(6), postprocess(7), check_dense_offset(8), focus_all(9), geocode(10), plot_offsetfield(11), create_stack(12)]')
+    
+    parser.add_argument('-p','--proj', dest='project',type=str,help='project E(Evans) or R(Rutford)',required=True)
     
     parser.add_argument('-fs', dest='fs',type=int,default=0,help='the first track')
     parser.add_argument('-ls', dest='ls',type=int,default=0,help='the last track')
@@ -94,6 +44,9 @@ def createParser():
     parser.add_argument('-first', dest='first',type=str,help='the first step',default=None)
     parser.add_argument('-last', dest='last',type=str,help='the last step',default=None)
     parser.add_argument('-do', dest='do',type=str,help='do this step',default=None)
+
+    parser.add_argument('--runid', dest='runid',type=int,help='runid for dense offset',default=None)
+    parser.add_argument('--version', dest='version',type=str,help='version for dense offset processing',default=None)
 
     parser.add_argument('--onlyGeo2rdr', dest='onlyGeo2rdr',type=bool,default=False, help='only perform geo2rdr and skip resampling')
    
@@ -106,34 +59,89 @@ def cmdLineParse(iargs = None):
     return parser.parse_args(args=iargs)
 
 def init(name, workdir):
+    print("Prepare readme for: ", name)
+    raw_folder = os.path.join(old_workdir, name, "raw")
+
+    # Find master
+    if proj == "CSK-Rutford":
+        option = 1
+    elif proj == "CSK-Evans":
+        option = 2
+    else:
+        raise Exception()
+
+    # choose the first one
+    if option == 0:
+        files = sorted(glob.glob(os.path.join(workdir, name, 'raw','2*')))
+        master = files[0].split('/')[-1]
+
+    # choose the same one as the old setup
+    elif option == 1:
+        f = open(os.path.join(old_workdir, name, "readme"))
+        line = f.readlines()[0]
+        f.close()
+        elements = line.split()
+        for i, element in enumerate(elements):
+            if element == "-m" or element == "--master":
+                master = elements[i+1]
+                break
+    # choose from the provided list
+    elif option == 2:
+        master = None
+        f = open("master_list.txt")
+        lines = f.readlines()
+        f.close()
+        for line in lines:
+            try:
+                line_name, line_master = line.split()
+                if line_name == name:
+                    master = line_master
+            except:
+                pass
+    else:
+        raise Exception()
     
+    print("master: ", master)
+
+    if proj == "CSK-Rutford":
+        dem = "/net/kraken/nobak/mzzhong/CSK-Rutford-v2/DEM/Rutford_bedmachine_surface.dem"
+    elif proj == "CSK-Evans":
+        dem = "/marmot-nobak/mzzhong/CSK-Evans-v3/DEM/Evans_bedmachine_surface.dem"
+    else:
+        raise Exception()
+
+    if proj == "CSK-Rutford":
+        stack_cmd = 'stackStripMap.py -s {raw_folder} --bbox "-78.3 -73.5 -85 -65" -d {dem} -w . -m {master} -W slc --useGPU'.format(raw_folder=raw_folder, dem=dem, master=master)
+    elif proj == "CSK-Evans":
+        stack_cmd = 'stackStripMap.py -s ./raw --bbox "-78.3 -73.5 -85 -65" -d {dem} -w . -m {master} -W slc --useGPU'.format(dem=dem, master=master)
+    
+    print(stack_cmd)
+
     os.chdir(name)
-
-    files = glob.glob(os.path.join('.','raw','2*'))
-    master = files[0].split('/')[-1]
-    print(master)
-
-    stack_cmd = 'stackStripMap.py -s ./raw --bbox "-78.3 -73.5 -85 -65" -d ' + workdir + '/Evans_DEM_const/Evans_constant.dem -w . -m ' + master + ' -W slc --useGPU'
     readme = open('readme','w')
-    readme.write(stack_cmd)
+    readme.write(stack_cmd + '\n')
     readme.close()
 
     os.chdir('..')
 
 def create(name):
-
     os.chdir(name)
-
     cmd = 'cat '+ 'readme | bash'
     os.system(cmd)
-
     os.chdir('..')
 
+def crop(name):
+    raw_folder = os.path.join(old_workdir, name, "raw")
+    cmd = "ln -s {} raw_crop".format(raw_folder)
+    print(cmd)
+    
+    os.chdir(name)
+    os.system(cmd)
+    os.chdir('..')
 
 def run_cmd(cmd, start, end, exe=False):
-
     cmd = cmd[:-1]
-
+    
     if start and end:
         cmd = cmd + ' -s Function-' + str(start) + ' -e Function-' + str(end)
  
@@ -229,13 +237,11 @@ def check_exist(step,line):
         params = f.readlines()
         for ip in range(len(params)):
             if params[ip][0:6] == 'outdir':
-
                 offset = params[ip].split()[-1]
                 azxml = offset + '/azimuth.off.xml'
                 rngxml = offset + '/range.off.xml'
 
             if params[ip][0:5] == 'coreg':
-                
                 coreg_dir = params[ip].split()[-1]
                 date = coreg_dir.split('/')[-1]
                 slc = coreg_dir + '/' + date + '.slc.xml'
@@ -260,17 +266,138 @@ def check_exist(step,line):
     return (exist, start, end)
 
 def main(iargs=None):
-
     inps = cmdLineParse(iargs)
 
-    # the tracks to process, first look at inps.track (for mode like CSK-Rutford)
-    if inps.track!="":
+    if inps.project.lower() in ["r" or "rutford"]:
+        proj = "CSK-Rutford"
+        full_track_list = [8,10,23,25,40,52,55,67,69,82,97,99,114,126,128,129,141,143,156,158,171,172,173,186,188,201,203,215,218,230,231,232]
+
+    elif inps.project.lower() in ['e' or "evans"]:
+        proj = "CSK-Evans"
+        full_track_list = range(22)
+    else:
+        raise Exception()
+
+    ################################################################ 
+    # runid should be associated with a set up dense offset parameters
+    # version should be associated post-filtering
+
+    #### About runid ####
+    # 960 x 480
+    # runid = 20190900
+    #params: ww=960, wh=480, sw=20, sh=20, kw=240, kh=120
+    # runid = 20190900
+
+    ############################
+    # 480 x 240
+
+    # runid = 20190901
+    #params: ww=480, wh=240, sw=20, sh=20, kw=240, kh=120
+    #runid = 20190901
+
+    # runid = 201909010
+    #params: ww=480, wh=240, sw=16, sh=16, kw=240, kh=120
+    # for csk-r-v2, new dem, new ampcor
+    #runid = 201909010
+
+    # runid = 201909011
+    #params: ww=480, wh=240, sw=16, sh=16, kw=120, kh=60
+    #params: smaller skip size
+    #runid = 201909011
+
+    # runid = 201909012
+    #params: ww=480, wh=240, sw=16, sh=16, kw=240, kh=120
+    # Use the staging PyCuAmpcor (isce2_exp2) with removal of n2 and n4 in variance estimation
+    #runid = 201909012
+
+    # runid = 201909013
+    # params: ww=480, wh=240, sw=16,sh =16, kw=240, kh=120
+    # Use the staging PyCuAmpcor (isce3_exp3) with bug-fix in covariance calculation
+    #runid = 201909013
+
+    # runid = 201909014
+    #params: ww=480, wh=240, sw=16, sh=16, kw=120, kh=60
+    #params: smaller skip size
+    # Run with the latest GPU
+    #runid = 201909014
+
+    #############################
+    # runid = 20190904
+    #params: ww=256, wh=128, sw=20, sh=20, kw=128, kh=64
+    #runid = 20190904
+
+    #############################
+    # runid = 20190908
+    # params: ww=128, wh=128, sw=20, sh=20, kw=64, kh=64
+    #runid = 20190908
+
+    #############################
+    # runid = 20190921
+    # params: ww=128, wh=64, sw=20, sh=20, kw=64, kh=32
+    #runid = 20190921
+
+    #############################
+    # runid = 20190925
+    # params: ww=64, wh=64, sw=20, sh=20, kw=32, kh=32
+    #runid = 20190925
+
+
+    ############# About version ################
+    # v12 is standard version
+    #version="v12"
+
+    # v13 for 201909011 is to use doubled size median-filtering
+    # from (5,5) to (9,9)
+    #version="v13"
+
+    # v14 for 201909011 and 201909014 is to increase the trim size from 22 to 25
+    #version='v14'
+
+
+    if proj == "CSK-Rutford":
+        # Set up the project.
+        stack = "stripmap"
+    
+        old_workdir = "/net/kraken/nobak/mzzhong/CSK-Rutford"
+    
+        #workdir = "/net/kraken/nobak/mzzhong/CSK-Rutford"
+        workdir = "/net/kraken/nobak/mzzhong/CSK-Rutford-v2"
+
+        runid = inps.runid
+
+        version = inps.version
+ 
+    elif proj=="CSK-Evans":
+
+        # Set up the project.
+        stack = "stripmap"
+    
+        # Old setup in 2018
+        old_workdir = "/net/kraken/nobak/mzzhong/CSK-Evans"
+        #runid = 20180712
+    
+        workdir = "/marmot-nobak/mzzhong/CSK-Evans-v3"
+
+        runid = inps.runid
+
+        version = inps.version
+    else:
+        raise Exception()
+        
+    ######################################################################
+
+    # Find the tracks to process
+    # full track
+    if inps.track=="full":
+        tracks = full_track_list
+    # provided but not full
+    elif inps.track!="":
         tracks = [int(track) for track in inps.track.split(',')]
     # then look at inps.fs and inps.ls (for mode like CSK-Evans)
     else:
         tracks = range(inps.fs,inps.ls+1)
 
-    # the steps
+    # Find the steps
     if ( inps.first == None and inps.last == None ) and inps.do == None:
         print('please provide the steps')
         return 0
@@ -322,17 +449,8 @@ def main(iargs=None):
             offset = dense_offset(stack=stack, workdir=workdir, nproc = nprocess['create_stack'], runid=runid, version=version, exe = inps.exe)
 
         for i in tracks:
-
             for j in range(1):
-
-                if proj == "CSK-Rutford":
-                    name = "track_" + str(i).zfill(3) + '_' + str(inps.istack)
-                
-                elif proj == "CSK-Evans":
-                    name='track_' + str(i).zfill(2) + str(j)
-                
-                else:
-                    raise Exception()
+                name = "track_" + str(i).zfill(3) + '_' + str(inps.istack)
                 
                 print("track name: ", name)
 
@@ -342,24 +460,30 @@ def main(iargs=None):
 
                 print(stepname)
                 if stepname == 'init':
-                    print('forbidden')
-                    print(stop)
-                    init(name,workdir)
+                    #print("not allowed to run")
+                    #print(stop)
+                    init(name, workdir)
 
                 elif stepname == 'create':
+                    # serial
+                    create(name)
 
-                    func = globals()[steplist[step]]
-                    p = Process(target=func, args=(name,))
-                    jobs.append(p)
-                    p.start()
-                    count = count + 1
-                    
-                    # nprocess controller
-                    if count == nprocess[steplist[step]]:
-                        for ip in range(nprocess[steplist[step]]):
-                            jobs[ip].join() #wait here
-                        count = 0
-                        jobs = []
+                    # multi-proc
+                    #func = globals()[steplist[step]]
+                    #p = Process(target=func, args=(name,))
+                    #jobs.append(p)
+                    #p.start()
+                    #count = count + 1
+                    #
+                    ## nprocess controller
+                    #if count == nprocess[steplist[step]]:
+                    #    for ip in range(nprocess[steplist[step]]):
+                    #        jobs[ip].join() #wait here
+                    #    count = 0
+                    #    jobs = []
+
+                elif stepname == "crop":
+                    crop(name)
 
                 elif stepname == 'dense_offset':
                     offset.initiate(trackname = name)
@@ -388,9 +512,6 @@ def main(iargs=None):
                     
                     offset.initiate(trackname = name)
                     offset.createOffsetFieldStack()
-
-                elif stepname == "crop":
-                    os.system("/net/kraken/nobak/mzzhong/CSK-Rutford/createFolder.py")
 
                 elif stepname == 'master' or stepname == 'focus_split' or stepname=='geo2rdr_coarseResamp':
 
@@ -424,7 +545,6 @@ def main(iargs=None):
 
                 elif stepname == 'focus_all':
                     # focus all master and slave
-
                     print("focus all is closed")
                     print(stop)
 
@@ -488,7 +608,6 @@ def main(iargs=None):
                         jobs.append(p)
                         p.start()
                         count = count + 1
-
 
                         # nprocess controller
                         if count == nprocess[steplist[step]]:

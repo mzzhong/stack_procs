@@ -11,18 +11,29 @@ pkl_name = sys.argv[1]
 with open(pkl_name, "rb") as f:
     filtered_offset = pickle.load(f)
 
-azOff   = filtered_offset['filtered_azOffset']    
-rngOff  = filtered_offset['filtered_rngOffset']   
-azOff_re      = filtered_offset['refer_azOffset']       
-rngOff_re     = filtered_offset['refer_rngOffset']      
-azOff_cmp            = filtered_offset['raw_azOffset']             
-rngOff_cmp           = filtered_offset['raw_rngOffset']            
+azOff_re            = filtered_offset['refer_azOffset']       
+rngOff_re           = filtered_offset['refer_rngOffset']      
+
+azOff_cmp           = filtered_offset['raw_azOffset']             
+rngOff_cmp          = filtered_offset['raw_rngOffset']
+
+azOff_cmp_std       = filtered_offset['raw_azOffsetStd']             
+rngOff_cmp_std      = filtered_offset['raw_rngOffsetStd']
+
+filtered_azOff_cmp_std       = filtered_offset['filtered_azOffsetStd'] 
+filtered_rngOff_cmp_std      = filtered_offset['filtered_rngOffsetStd']
+
+azOff               = filtered_offset['filtered_azOffset']    
+rngOff              = filtered_offset['filtered_rngOffset']   
+
 figdir              = filtered_offset['figdir']
 title               = filtered_offset['title']
 
 #(azOff, rngOff, azOff_re, rngOff_re, azOff_cmp, rngOff_cmp, figdir, title= None):
 
 pad = 0.2
+
+tick_sca = 3
 
 # Ranges of values.
 
@@ -31,7 +42,6 @@ if "az_vmin" in filtered_offset:
     vmin10 = filtered_offset["az_vmin"]
     vmax10 = filtered_offset["az_vmax"]
 else:
-
     vmin = np.nanmin(azOff_re)
     vmax = np.nanmax(azOff_re)
     
@@ -41,14 +51,13 @@ else:
     vmin10 = np.floor(vmin*10)/10 - pad
     vmax10 = np.ceil(vmax*10)/10 + pad
 
-fig, axs = plt.subplots(1,6, sharey=True, figsize=(24,15))
+fig, axs = plt.subplots(1,8, sharey=True, figsize=(23,15))
 
 frac = 0.08
 padbar = 0.05
 shrink=0.7
 tickstep=(vmax10-vmin10)/4
 
-#ax = fig.add_subplot(161)
 ax = axs[0]
 ax.set_title('Predicted azimuth offset') 
 im = ax.imshow(azOff_re, cmap=cm.jet, vmax=vmax10, vmin=vmin10)
@@ -56,15 +65,20 @@ fig.colorbar(im,ax=ax,fraction=frac, pad=padbar, shrink=shrink, orientation='hor
 ax.set_ylabel("offset index")
 ax.set_xlabel("offset index")
 
-#ax = fig.add_subplot(162)
 ax=axs[1]
 ax.set_title('Raw azimuth offset') 
 im = ax.imshow(azOff_cmp, cmap=cm.jet, vmax=vmax10, vmin=vmin10)
 fig.colorbar(im,ax=ax, fraction=frac, pad=padbar, shrink=shrink, orientation='horizontal',ticks=np.arange(vmin10,vmax10+1e-5,tickstep),label='m')
 ax.set_xlabel("offset index")
 
-#ax = fig.add_subplot(163)
 ax=axs[2]
+ax.set_title('azimuth offset std')
+#im = ax.imshow(azOff_cmp_std, cmap=cm.jet, vmax=0.9, vmin=0)
+im = ax.imshow(filtered_azOff_cmp_std, cmap=cm.jet, vmax=0.9, vmin=0)
+fig.colorbar(im,ax=ax,fraction=frac, pad=padbar, shrink=shrink, orientation='horizontal',label='m')
+ax.set_xlabel("offset index")
+
+ax=axs[3]
 ax.set_title('Filtered azimuth offset')
 im = ax.imshow(azOff, cmap=cm.jet, vmax=vmax10, vmin=vmin10)
 fig.colorbar(im,ax=ax,fraction=frac, pad=padbar, shrink=shrink, orientation='horizontal',ticks=np.arange(vmin10, vmax10+1e-5,tickstep),label='m')
@@ -76,7 +90,6 @@ if "rng_vmin" in filtered_offset:
     vmin10 = filtered_offset["rng_vmin"]
     vmax10 = filtered_offset["rng_vmax"]
 else:
-
     vmin = np.nanmin(rngOff_re)
     vmax = np.nanmax(rngOff_re)
     
@@ -86,27 +99,31 @@ else:
     vmin10 = np.floor(vmin*10)/10 - pad
     vmax10 = np.ceil(vmax*10)/10 + pad
 
-    vmin10 = -0.1
-    vmax10 = 0.1
+    #vmin10 = -0.1
+    #vmax10 = 0.1
 
 tickstep=(vmax10-vmin10)/4
 
-#ax = fig.add_subplot(164)
-ax=axs[3]
+ax=axs[4]
 ax.set_title('Predicted range offset')
 im = ax.imshow(rngOff_re, cmap=cm.jet, vmax=vmax10, vmin=vmin10)
 fig.colorbar(im,ax=ax,fraction=frac, pad=padbar, shrink=shrink, orientation='horizontal',ticks=np.arange(vmin10,vmax10+1e-5,tickstep),label='m')
 ax.set_xlabel("offset index")
 
-#ax = fig.add_subplot(165)
-ax=axs[4]
+ax=axs[5]
 ax.set_title('Raw range offset') 
 im = ax.imshow(rngOff_cmp, cmap=cm.jet, vmax=vmax10, vmin=vmin10)
 fig.colorbar(im,ax=ax,fraction=frac, pad=padbar, shrink=shrink, orientation='horizontal',ticks=np.arange(vmin10,vmax10+1e-5,tickstep),label='m')
 ax.set_xlabel("offset index")
 
-#ax = fig.add_subplot(166)
-ax=axs[5]
+ax=axs[6]
+ax.set_title('range offset std')
+#im = ax.imshow(rngOff_cmp_std, cmap=cm.jet, vmax=0.38, vmin=0)
+im = ax.imshow(filtered_rngOff_cmp_std, cmap=cm.jet, vmax=0.38, vmin=0)
+fig.colorbar(im,ax=ax,fraction=frac, pad=padbar, shrink=shrink, orientation='horizontal',label='m')
+ax.set_xlabel("offset index")
+
+ax=axs[7]
 ax.set_title('Filtered range offset')          
 im = ax.imshow(rngOff, cmap=cm.jet, vmax=vmax10, vmin=vmin10)
 fig.colorbar(im,ax=ax,fraction=frac, pad=padbar, shrink=shrink, orientation='horizontal',ticks=np.arange(vmin10,vmax10+1e-5,tickstep),label='m')

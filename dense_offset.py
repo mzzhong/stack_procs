@@ -35,24 +35,12 @@ from medianfilter2d import medianfilter2d as mdf
 import time
 
 thrs_default=0.05
-# v10: use _offset_filter_v2
-# The mis-coregistration is assumed to be a constant, stationary is criterion is set to 0.05
-
-#version = 'v11'
-#thrs_default=0.1
-# v11: use _offset_filter_v2
-# The mis-coregistration is assumed to be a constant, stationary is criterion is set to 0.1
-
-#version = 'v12'
-#thrs_default=0.05
-# v12: use _offset_filter_v2
-# The mis-coregistration is assumed to be a plane (first order), stationary criterion is set to 0.1
-# The mis-coregistration is derived from 20190901
 
 nanvalue=-999
 
 disp_temp_folder = "/net/kraken/nobak/mzzhong/CSK-Rutford/disp_temp_files"
 
+# Clean disp temp files
 #if len(os.listdir(disp_temp_folder))>0:
 #    os.system("rm " + disp_temp_folder + "/*")
 
@@ -114,7 +102,7 @@ class dense_offset():
 
             self.filt_suffix = str(runid) + '_' + str(version)
             self.run_mode = "stack"
-            self.rb_suffix = None 
+            self.rs_suffix = None 
 
             if stack == 'stripmap':
                 self.slcs_folder = 'coregSLC/Coarse'
@@ -128,14 +116,50 @@ class dense_offset():
 
                 # create the simplest doc object
                 # 2019* CSK
-                if runid==20190901:
+                if runid==20190900:
+                    self.doc = dense_offset_config(ww=960, wh=480, sw=20, sh=20, kw=240, kh=120, runid=runid)
+
+                elif runid==20190901:
                     self.doc = dense_offset_config(ww=480, wh=240, sw=20, sh=20, kw=240, kh=120, runid=runid)
+
+                elif runid==201909010:
+                    self.doc = dense_offset_config(ww=480, wh=240, sw=16, sh=16, kw=240, kh=120, runid=runid)
+
+                elif runid==201909011:
+                    self.doc = dense_offset_config(ww=480, wh=240, sw=16, sh=16, kw=120, kh=60, runid=runid)
+
+                elif runid==201909012:
+                    self.doc = dense_offset_config(ww=480, wh=240, sw=16, sh=16, kw=240, kh=120, runid=runid)
+
+                elif runid==201909013:
+                    self.doc = dense_offset_config(ww=480, wh=240, sw=16, sh=16, kw=240, kh=120, runid=runid)
+
+                elif runid==201909014:
+                    self.doc = dense_offset_config(ww=480, wh=240, sw=16, sh=16, kw=120, kh=60, runid=runid)
+
                 elif runid==20190904:
                     self.doc = dense_offset_config(ww=256, wh=128, sw=20, sh=20, kw=128, kh=64, runid=runid)
+                
                 elif runid==20190908:
                     self.doc = dense_offset_config(ww=128, wh=128, sw=20, sh=20, kw=64, kh=64, runid=runid)
+
                 elif runid == 20190921:
                     self.doc = dense_offset_config(ww=128, wh=64, sw=20, sh=20, kw=64, kh=32, runid=runid)
+
+                ## Finer step sizes
+                elif runid == 201909211:
+                    self.doc = dense_offset_config(ww=128, wh=64, sw=20, sh=20, kw=32, kh=16, runid=runid)
+
+                elif runid == 201909212:
+                    self.doc = dense_offset_config(ww=128, wh=64, sw=20, sh=20, kw=16, kh=8, runid=runid)
+
+                elif runid == 201909213:
+                    self.doc = dense_offset_config(ww=128, wh=64, sw=20, sh=20, kw=8, kh=4, runid=runid)
+
+                elif runid == 201909214:
+                    self.doc = dense_offset_config(ww=128, wh=64, sw=20, sh=20, kw=4, kh=4, runid=runid)
+                ###
+
                 elif runid == 20190925:
                     self.doc = dense_offset_config(ww=64, wh=64, sw=20, sh=20, kw=32, kh=32, runid=runid)
 
@@ -152,10 +176,10 @@ class dense_offset():
                 self.lonname = 'lon.rdr'
                 self.losname = 'los.rdr'
                 self.hgtname = 'hgt.rdr'
+                self.demfactorname = 'demfactor.rdr'
 
                 self.geometry_suffix = '.rdr' 
  
-
             elif stack == 'tops':
                 self.slcs_folder = 'merged/SLC'
                 self.master_folder = self.slcs_folder
@@ -178,6 +202,15 @@ class dense_offset():
                 elif runid == 20200102:
                     self.doc = dense_offset_config(ww=480, wh=128, sw=10, sh=10, kw=240, kh=64, runid=runid)
 
+                elif runid == 20200103:
+                    self.doc = dense_offset_config(ww=480, wh=120, sw=10, sh=10, kw=240, kh=60, runid=runid)
+
+                elif runid == 20200104:
+                    self.doc = dense_offset_config(ww=480, wh=120, sw=10, sh=10, kw=240, kh=60, runid=runid)
+
+                elif runid == 20200105:
+                    self.doc = dense_offset_config(ww=960, wh=240, sw=10, sh=10, kw=240, kh=60, runid=runid)
+
                 else:
                     raise Exception("Undefined runid: ", runid)
 
@@ -186,6 +219,7 @@ class dense_offset():
                 self.lonname = 'lon.rdr.full'
                 self.losname = 'los.rdr.full'
                 self.hgtname = 'hgt.rdr.full'
+                self.demfactorname = 'demfactor.rdr.full'
 
                 self.geometry_suffix = '.rdr.full'
 
@@ -206,26 +240,54 @@ class dense_offset():
                 ww = 64
                 wh = 16
                 oversample = 128
-                self.doc = dense_offset_config(ww=ww, wh=wh, sw=20, sh=20, kw=ww//2, kh=wh//2, oversample=oversample)
+                self.doc = dense_offset_config(ww=ww, wh=wh, sw=20, sh=20, kw=ww//2, kh=wh//2, oversample=oversample, runid=runid)
 
                 self.geometry = 'merged/geom_master'
                 self.latname = 'lat.rdr.full'
                 self.lonname = 'lon.rdr.full'
                 self.losname = 'los.rdr.full'
                 self.hgtname = 'hgt.rdr.full'
+                self.demfactorname = 'demfactor.rdr.full'
 
                 self.geometry_suffix = '.rdr.full'
 
                 # used to generate pixel size
                 self.burst_xml = 'master/IW1.xml'
 
-        
-        def initiate_rb_pair(self, iter_num, rb_suffix):
+            elif stack == 'tops_LA_Basin':
+                self.slcs_folder = 'merged/SLC'
+                self.master_folder = self.slcs_folder
+                self.slave_folder = self.slcs_folder
 
-            self.run_mode = "pair_rb"
-            self.rb_iter_num = iter_num
-            self.rb_suffix = rb_suffix
+                self.master_suffix = '.slc.full'
+                self.slave_suffix = '.slc.full'
 
+                self.maxday = 16
+
+                # create the doc
+                if runid == 20201001:
+                    ww = 128
+                    wh = 64
+                    oversample = 64
+                    sw = 10
+                    sh = 10
+                    self.doc = dense_offset_config(ww=ww, wh=wh, sw=sw, sh=sh, kw=ww//2, kh=wh//2, oversample=oversample, runid=runid)
+
+                self.geometry = 'merged/geom_master'
+                self.latname = 'lat.rdr.full'
+                self.lonname = 'lon.rdr.full'
+                self.losname = 'los.rdr.full'
+                self.hgtname = 'hgt.rdr.full'
+                self.demfactorname = 'demfactor.rdr.full'
+
+                self.geometry_suffix = '.rdr.full'
+
+                # used to generate pixel size
+                self.burst_xml = 'master/IW1.xml'
+            else:
+                raise Exception("Unknown project")
+
+       
         def get_offset_geometry(self):
 
             doc = self.doc
@@ -235,11 +297,13 @@ class dense_offset():
             lonfile = os.path.join(self.runfolder, self.geometry, 'lon' + self.geometry_suffix)
             losfile = os.path.join(self.runfolder, self.geometry, 'los' + self.geometry_suffix)
             hgtfile = os.path.join(self.runfolder, self.geometry, 'hgt' + self.geometry_suffix)
+            demfactorfile = os.path.join(self.runfolder, self.geometry, 'demfactor' + self.geometry_suffix)
 
             doc.latfile = latfile 
             doc.lonfile = lonfile  
             doc.losfile = losfile  
-            doc.hgtfile = hgtfile  
+            doc.hgtfile = hgtfile
+            doc.demfactorfile = demfactorfile
 
             # Offsetfield size.
             numWinDown = (doc.azsize - doc.mm*2 - doc.sh*2 - doc.wh) // doc.kh
@@ -257,7 +321,7 @@ class dense_offset():
             print(doc.numWinDown,doc.numWinAcross)
 
             # Check if the files exist.
-            filelist = ['lat','lon','hgt','los']
+            filelist = ['lat','lon','hgt','los','demfactor']
             exist = True
             for geofile in filelist:
                 offset_geofile = os.path.join(self.runfolder, self.geometry, geofile + '_offset_' + str(doc.runid) + '.rdr.xml')
@@ -270,6 +334,7 @@ class dense_offset():
             lon = np.zeros(shape=(numWinDown,numWinAcross),dtype=np.float64)
             lat = np.zeros(shape=(numWinDown,numWinAcross),dtype=np.float64) 
             hgt = np.zeros(shape=(numWinDown,numWinAcross),dtype=np.float64)
+            demfactor = np.zeros(shape=(numWinDown,numWinAcross),dtype=np.float64)
 
             inc = np.zeros(shape=(numWinDown,numWinAcross),dtype=np.float32)
             azi = np.zeros(shape=(numWinDown,numWinAcross),dtype=np.float32)
@@ -277,15 +342,11 @@ class dense_offset():
             # Changed to track down the miscoregistration issue 
             # The issuse should be resolved after setting the starting pixel at (doc.mm, doc.mm)
 
-            # option 1 oldest
-            #centerOffsetHgt = doc.sh + doc.kh//2-1
-            #centerOffsetWidth = doc.sw + doc.kw//2-1
-
-            # option 2 used for RC earthquake
+            # option 1: This assumes starting pixel is doc.mm + doc.sh
             #centerOffsetHgt = doc.sh + doc.wh//2-1
             #centerOffsetWidth = doc.sw + doc.ww//2-1
 
-            # option 3
+            # option 2: This assumes starting pixel is doc.mm
             centerOffsetHgt = doc.wh//2-1
             centerOffsetWidth = doc.ww//2-1
 
@@ -305,7 +366,7 @@ class dense_offset():
                 downs.append(down)
                 
                 off = down * doc.rngsize
-                off2 = down * doc.rngsize * 2 # BIL
+                off2 = down * doc.rngsize * 2 # for BIL only
     
                 # The starting pixel is at doc.mm
                 range_indices = doc.mm + np.arange(numWinAcross) * doc.kw + centerOffsetWidth
@@ -319,16 +380,19 @@ class dense_offset():
                 latline = np.memmap(filename=latfile,dtype='float64',offset=8*off,shape=(doc.rngsize))
                 lonline = np.memmap(filename=lonfile,dtype='float64',offset=8*off,shape=(doc.rngsize))
                 hgtline = np.memmap(filename=hgtfile,dtype='float64',offset=8*off,shape=(doc.rngsize))
+                demfactorline = np.memmap(filename=demfactorfile,dtype='float64',offset=8*off,shape=(doc.rngsize))
                  
                 losline = np.memmap(filename=losfile,dtype='float32',offset=4*off2,shape=(doc.rngsize*2))
 
                 #lat[iwin,:] = latline[start:end:doc.kw]
                 #lon[iwin,:] = lonline[start:end:doc.kw]
                 #hgt[iwin,:] = hgtline[start:end:doc.kw]
+                #demfactor[iwin,:] = demfactorline[start:end:doc.kw]
 
                 lat[iwin,:] = latline[range_indices]
                 lon[iwin,:] = lonline[range_indices]
                 hgt[iwin,:] = hgtline[range_indices]
+                demfactor[iwin,:] = demfactorline[range_indices]
 
                 incline = losline[0:doc.rngsize]
                 aziline = losline[doc.rngsize:doc.rngsize*2]
@@ -336,6 +400,13 @@ class dense_offset():
                 inc[iwin,:] = incline[range_indices]
                 azi[iwin,:] = aziline[range_indices]
 
+                #print(iwin,': ',lat[iwin,:])
+                #print(iwin,': ',lon[iwin,:])
+                #print(iwin,': ',inc[iwin,:])
+                #print(iwin,': ',azi[iwin,:])
+
+            # Find the indexes of all correlation chips
+            doc.across_inds, doc.down_inds = np.meshgrid(range_indices, downs)
 
             # Give the arrays to doc project.
             doc.lat = lat
@@ -344,8 +415,8 @@ class dense_offset():
             doc.azi = azi
 
             # Concantenante los and azi (bsq).
-            print(inc)
-            print(azi)
+            #print(inc)
+            #print(azi)
 
             # Write to disk in isce format.
             for geofile in filelist:
@@ -380,6 +451,12 @@ class dense_offset():
                     dst_ds.GetRasterBand(1).WriteArray(hgt, 0 ,0 )
                     dst_ds = None
 
+                elif geofile == 'demfactor':
+                    doc.offsetDemFactorFile = offset_geofile
+                    driver = gdal.GetDriverByName( 'ENVI' )
+                    dst_ds = driver.Create(offset_geofile, demfactor.shape[1], demfactor.shape[0], 1, 6 )
+                    dst_ds.GetRasterBand(1).WriteArray(demfactor, 0 ,0 )
+                    dst_ds = None
 
                 elif geofile == 'los':
                     doc.offsetLosFile = offset_geofile
@@ -428,13 +505,10 @@ class dense_offset():
             import xml.etree.ElementTree as ET
 
             doc = self.doc
-
             tree = ET.parse(xmlfile)
-
             root = tree.getroot()
 
             for child in root:
-
                 #print(child.attrib)
                 if 'name' in child.attrib.keys() and child.attrib['name'] == 'coordinate1':
                     for grandchild in child:
@@ -492,7 +566,7 @@ class dense_offset():
 
             return 0
 
-        def reference(self):
+        def prepare_reference(self):
             
             from grossOffsets import grossOffsets
 
@@ -560,13 +634,14 @@ class dense_offset():
                     masterdate = elements[i+1]
                     break
 
+            print("master date: ", masterdate)
             if masterdate:
 
                 # For stripmap, create the symbolic link to master
                 if self.stack == 'stripmap':
     
                     masterfolder = os.path.join(self.runfolder, self.slcs_folder, masterdate)
-    
+
                     # Create symbolic link to the master image data
                     if not os.path.exists(masterfolder):
                         os.mkdir(masterfolder)
@@ -605,15 +680,10 @@ class dense_offset():
 
             # Collect dates
             slcs = glob.glob(self.trackfolder + '/' + self.slcs_folder + '/2*')
-            #for slc in slcs:
-            #    if slc.split('/')[-1]=='20171119_backup':
-            #        print(slc)
-            #        raise Exception('Wrong Name')
-            intdates = [int(slc.split('/')[-1]) for slc in slcs if len(slc.split('/')[-1]) == 8 ]
-            
-            intdates.sort() 
+            intdates = [int(slc.split('/')[-1]) for slc in slcs if len(slc.split('/')[-1]) == 8 ] 
+            intdates.sort()
             self.obdates =[ date(int(str(intdate)[0:4]), int(str(intdate)[4:6]), int(str(intdate)[6:8])) for intdate in intdates]
-            #print(self.obdates)
+            #print("available dates: ", self.obdates)
 
             # Create the all possible offsetfields.
             self.offsetfields = []
@@ -624,12 +694,15 @@ class dense_offset():
                         date1str = date1.strftime('%Y%m%d')
                         date2str = date2.strftime('%Y%m%d')
 
+                        # if this one exists in cuDenseOffset
+                        #if os.path.exists(self.trackfolder + '/' + self.offsetFolder + '/' + date1str + '_' + date2str):
+                        #    self.offsetfields.append([date1str,date2str,date1,date2])
                         self.offsetfields.append([date1str,date2str,date1,date2])
 
             # Preparation for offset field (pixelsize, geometry, etc)
-            self.preparation_offsetfield(mode="stack")
+            self.preparation_offsetfield()
 
-        def initiate_track_pair(self, trackname, pairname, mode):
+        def initiate_pair(self, trackname, pairname):
 
             doc = self.doc
 
@@ -639,13 +712,8 @@ class dense_offset():
             self.pairname = pairname
             self.pairfolder = os.path.join(self.workdir, self.trackname, 'pairs', self.pairname)
 
-            # run folder
-            if mode=="pair":
-                self.runfolder = self.pairfolder
-            elif mode=="track":
-                self.runfolder = self.trackfolder
-            else:
-                raise Exception("Undefined mode")
+            # Set the run folder
+            self.runfolder = self.pairfolder
 
             # create the offset folder 
             pathlib.Path(self.runfolder + '/' + self.offsetFolder).mkdir(exist_ok=True)
@@ -660,15 +728,16 @@ class dense_offset():
             self.offsetfields=[]
             self.offsetfields.append([date1str,date2str,date1,date2])
 
-            self.preparation_offsetfield(mode=mode)
+            # Preparation for offset field (pixelsize, geometry, etc)
+            self.preparation_offsetfield()
 
-        def preparation_offsetfield(self, mode=None):
+        def preparation_offsetfield(self):
 
             ## offsetfield object initiation.
             # Load the existed result, if it exist. 
             # Point to the offset pickle file.
 
-            # Control Redoing the preparation or not. 
+            # Control on redoing the preparation work or not. 
             redo_preparation_offsetfield = 0
             
             doc = self.doc
@@ -680,19 +749,18 @@ class dense_offset():
                 with open(self.doc_pkl,'rb') as f:
                     self.doc = pickle.load(f)
                     doc = self.doc
-
-                # Modification when necessary
-                #doc.outprefix="cuampcor"
-                # Save it
-                #with open(self.doc_pkl ,'wb') as f:
-                #    pickle.dump(doc,f)
-
             else:
                 # Choose the xml file of the master and find its size
+
+                #master_slc = self.runfolder + '/' + self.slcs_folder + '/' + self.masterdate + '/' + self.masterdate + '.slc.full'
+                #print(master_slc)
+                #self.get_slc_size_gdal(master_slc)
+
                 xmls = glob.glob(self.runfolder + '/' + self.slcs_folder + '/' + self.masterdate + '/' +'*.xml')
- 
-                # Get the SLC image size
-                self.get_slc_size(xmls[0])
+                for xml in xmls:
+                    if not xml.endswith('aux.xml'):
+                        # Get the SLC image size
+                        self.get_slc_size(xml)
             
                 # Get the offset field pixel size
                 self.get_pixel_size()
@@ -702,14 +770,15 @@ class dense_offset():
                 # Get offset field geometry
                 self.get_offset_geometry()
              
-                # Obtain reference velocity
+                # Obtain reference velocity (only for glacier projects)
                 if self.stack in ["stripmap","tops"]:
-                    self.reference()
+                    self.prepare_reference()
+                # For tectonic geodesy (e.g. Ridgecrest Earthquake), the reference is simply zero.
                 else:
-                    raise Exception("undefined stack")
+                    doc.grossDown = np.zeros(shape=(doc.numWinDown, doc.numWinAcross))
+                    doc.grossAcross= np.zeros(shape=(doc.numWinDown, doc.numWinAcross))
 
                 ##### The last chance to change doc object ######
-
                 # Set runtime gpu params
                 doc.nwac = 170
                 doc.nwdc = 1
@@ -717,8 +786,6 @@ class dense_offset():
                 # Save it
                 with open(self.doc_pkl ,'wb') as f:
                     pickle.dump(doc,f)
-
-            #print(stop)
 
             return 0
 
@@ -771,28 +838,27 @@ class dense_offset():
                         self.doc_count = 0
                         self.jobs = []
 
-        def run_offset_pair_iter(self, iter_num, exe=False):
+                # only run the first one
+                #break
+
+            return 0
+
+        def run_offset_pair(self, iter_num, master, slave, exe=False):
 
             doc = self.doc
+
+            # Just one offset field
             date1str = self.offsetfields[0][0]
             date2str = self.offsetfields[0][1]
             offset_folder = os.path.join(self.runfolder,self.offsetFolder,date1str+'_'+date2str)
-            if not os.path.exists(offset_folder):
-                os.mkdir(offset_folder)
-                print(offset_folder)
+            pathlib.Path(offset_folder).mkdir(exist_ok=True)
 
             # Find the two slcs
-            master = os.path.join(self.runfolder,self.slcs_folder,date1str, date1str + self.slave_suffix)
-            if iter_num==0:
-                slave = os.path.join(self.runfolder,self.slcs_folder,date2str, date2str + self.slave_suffix)
-            else:
-                # Rubber Sheeting obtained new slcs
-                slave = os.path.join(self.runfolder, self.slcs_folder, date2str, date2str + '_' + "rb_" + str(iter_num-1) + self.slave_suffix)
+            #slave = os.path.join(self.runfolder, self.slcs_folder, date2str, date2str + '_' + "rs_" + str(iter_num-1) + self.slave_suffix)
 
             # Prefix & suffix
-            rb_suffix = self.rb_suffix
             offset_outprefix = os.path.join(offset_folder,doc.outprefix)
-            offset_outsuffix = '_run_' + str(doc.runid)+ '_' + rb_suffix
+            offset_outsuffix = '_run_' + str(doc.runid)+ '_' + str(iter_num)
 
             # Generate runfile for dense_offset estimation.
             # Create runfile for this offset field
@@ -805,7 +871,8 @@ class dense_offset():
                 print("run for: ", offsetfield_filename)
                 run_denseoffset_bash(cmd="bash "+run_file, exe=exe)
 
-            return 0
+            print(offsetfield_filename)
+            return offsetfield_filename
 
         def _cuampcor_runfile(self, offset_folder, master, slave, prefix, suffix): 
 
@@ -813,42 +880,83 @@ class dense_offset():
 
             # set parameters
             # Get GPU id
-            gpuid = self.doc_count % self.nproc + (8-self.nproc)
-            print(gpuid)
+            max_gpu_id = 6
+            gpuid = self.doc_count % self.nproc + (max_gpu_id - self.nproc)
+            print('gpuid: ', gpuid)
             
-            gpuAmpcor_driver = "/net/kamb/ssd-tmp1/mzzhong/insarRoutines/stack_procs/cuDenseOffsets_dev.py" 
+            script_version = ["old","new"]
 
-            run_file = offset_folder + '/gpurun' + '_' + str(doc.runid) + '.sh'
-            f = open(run_file,'w')
-            f.write('#!/bin/bash\n')
-            f.write('master=' + master+ '\n')
-            f.write('slave=' + slave+ '\n')
+            if "old" in script_version:
+                gpuAmpcor_driver = "/net/kamb/ssd-tmp1/mzzhong/insarRoutines/stack_procs/cuDenseOffsets_dev.py" 
+                run_file = offset_folder + '/gpurun' + '_' + str(doc.runid) + '.sh'
+                f = open(run_file,'w')
+                f.write('#!/bin/bash\n')
+                f.write('master=' + master+ '\n')
+                f.write('slave=' + slave+ '\n')
+                #f.write('fixImageXml.py -f -i $master'+ '\n')
+                #f.write('fixImageXml.py -f -i $slave'+ '\n')
+                f.write('ww=' + str(doc.ww)+ '\n')
+                f.write('wh=' + str(doc.wh)+ '\n')
+                #f.write('sw=' + str(doc.sw)+ '\n')
+                #f.write('sh=' + str(doc.sh)+ '\n')
+                f.write('sw=' + str(10)+ '\n')
+                f.write('sh=' + str(10)+ '\n')
+                f.write('kw=' + str(doc.kw)+ '\n')
+                f.write('kh=' + str(doc.kh)+ '\n')
+                f.write('mm=' + str(doc.mm)+ '\n')
+                f.write('gross=' + str(doc.gross)+ '\n')
+                f.write('gpuid=' + str(gpuid)+ '\n')
+                f.write('deramp=' + str(doc.deramp)+ '\n')
+                f.write('oo=' + str(doc.oversample)+ '\n')
+                #f.write('nwac=' + str(doc.nwac)+ '\n')
+                #f.write('nwdc=' + str(doc.nwdc)+ '\n')
+                f.write('nwac=' + str(170)+ '\n')
+                f.write('nwdc=' + str(1)+ '\n')
+                f.write('outprefix='+prefix+ '\n')
+                f.write('outsuffix='+suffix+ '\n')
+    
+                f.write('rm ' + '$outprefix$outsuffix' + '*\n')
 
-            #f.write('fixImageXml.py -f -i $master'+ '\n')
-            #f.write('fixImageXml.py -f -i $slave'+ '\n')
+                f.write(gpuAmpcor_driver + ' --master $master --slave $slave --ww $ww --wh $wh --sw $sw --sh $sh --mm $mm --kw $kw --kh $kh --gross $gross --outprefix $outprefix --outsuffix $outsuffix --deramp $deramp --gpuid $gpuid --nwac $nwac --nwdc $nwdc --oo $oo \n')
+    
+                f.close()
+            
+            if "new" in script_version:
+                gpuAmpcor_driver = "/net/kamb/ssd-tmp1/mzzhong/insarRoutines/stack_procs/cuDenseOffsets_lz_v2.py" 
+                run_file = offset_folder + '/gpurun' + '_' + str(doc.runid) + '_lz' + '.sh'
+                f = open(run_file,'w')
+                f.write('#!/bin/bash\n')
+                f.write('reference=' + master+ '\n')
+                f.write('secondary=' + slave+ '\n')
+                #f.write('fixImageXml.py -f -i $master'+ '\n')
+                #f.write('fixImageXml.py -f -i $slave'+ '\n')
+                f.write('ww=' + str(doc.ww)+ '\n')
+                f.write('wh=' + str(doc.wh)+ '\n')
+                f.write('sw=' + str(doc.sw)+ '\n')
+                f.write('sh=' + str(doc.sh)+ '\n')
+                #f.write('sw=' + str(10)+ '\n')
+                #f.write('sh=' + str(10)+ '\n')
+                f.write('kw=' + str(doc.kw)+ '\n')
+                f.write('kh=' + str(doc.kh)+ '\n')
+                f.write('mm=' + str(doc.mm)+ '\n')
+                f.write('startpixeldw=$mm' + '\n')
+                f.write('startpixelac=$mm' + '\n')
+                f.write('gross=' + str(doc.gross)+ '\n')
+                f.write('gpuid=' + str(gpuid)+ '\n')
+                f.write('deramp=' + str(doc.deramp)+ '\n')
+                f.write('oo=' + str(doc.oversample)+ '\n')
+                #f.write('nwac=' + str(doc.nwac)+ '\n')
+                #f.write('nwdc=' + str(doc.nwdc)+ '\n')
+                f.write('nwac=' + str(20)+ '\n')
+                f.write('nwdc=' + str(1)+ '\n')
+                f.write('outprefix='+prefix+ '\n')
+                f.write('outsuffix='+suffix+ '\n')
+    
+                f.write('rm ' + '$outprefix$outsuffix' + '*\n')
 
-            f.write('ww=' + str(doc.ww)+ '\n')
-            f.write('wh=' + str(doc.wh)+ '\n')
-            f.write('sw=' + str(doc.sw)+ '\n')
-            f.write('sh=' + str(doc.sh)+ '\n')
-            f.write('kw=' + str(doc.kw)+ '\n')
-            f.write('kh=' + str(doc.kh)+ '\n')
-            f.write('mm=' + str(doc.mm)+ '\n')
-            f.write('gross=' + str(doc.gross)+ '\n')
-            f.write('gpuid=' + str(gpuid)+ '\n')
-            f.write('deramp=' + str(doc.deramp)+ '\n')
-            f.write('oo=' + str(doc.oversample)+ '\n')
-            #f.write('nwac=' + str(doc.nwac)+ '\n')
-            #f.write('nwdc=' + str(doc.nwdc)+ '\n')
-            f.write('nwac=' + str(170)+ '\n')
-            f.write('nwdc=' + str(1)+ '\n')
-            f.write('outprefix='+prefix+ '\n')
-            f.write('outsuffix='+suffix+ '\n')
-
-            f.write('rm ' + '$outprefix$outsuffix' + '*\n')
-            f.write(gpuAmpcor_driver + ' --master $master --slave $slave --ww $ww --wh $wh --sw $sw --sh $sh --mm $mm --kw $kw --kh $kh --gross $gross --outprefix $outprefix --outsuffix $outsuffix --deramp $deramp --gpuid $gpuid --nwac $nwac --nwdc $nwdc --oo $oo \n')
-
-            f.close()
+                f.write(gpuAmpcor_driver + ' --reference $reference --secondary $secondary --ww $ww --wh $wh --sw $sw --sh $sh --mm $mm --kw $kw --kh $kh --startpixeldw $startpixeldw --startpixelac $startpixelac --gross $gross --outprefix $outprefix --outsuffix $outsuffix --deramp $deramp --gpuid $gpuid --nwac $nwac --nwdc $nwdc --oo $oo \n')
+    
+                f.close()
 
             # Check if the offset field has been calculated
             offsetfield_filename = prefix + suffix + '.bip'
@@ -1101,7 +1209,7 @@ class dense_offset():
            
             return ind_stationary
 
-        def _get_misCoreg(self, az, rng, refer_az, refer_rng, ind_con_pts, order=1):
+        def _get_misCoreg(self, az, rng, refer_az, refer_rng, ind_con_pts, order=1, save_miscoreg=False):
 
             doc = self.doc
 
@@ -1202,16 +1310,13 @@ class dense_offset():
                     fig.savefig('200.png', format='png')
 
             # Save
-            save_the_plane=False
             
-            if doc.runid == 20190901:
-                save_the_plane = True
-
-            if save_the_plane:
+            if save_miscoreg:
                 pkl_file = os.path.join(doc.offset_folder, "misCoreg_" + str(doc.runid) + '.pkl')
                 misCoreg_pred = {}
                 misCoreg_pred["az_mat_mis"] = az_mat_mis_pred
                 misCoreg_pred["rng_mat_mis"] = rng_mat_mis_pred
+                
                 with open(pkl_file,"wb") as f:
                     pickle.dump(misCoreg_pred, f)
 
@@ -1257,6 +1362,7 @@ class dense_offset():
 
             doc = self.doc
 
+            ######## Notes for RC #####################
             # Used for Ridgecreast earthquake 1kmx1km
             #med2_kernel_size = (9,15)
 
@@ -1264,8 +1370,27 @@ class dense_offset():
             # Used for Ridgecreast earthquake 500mx500m
             # Used for CSK-Rutford 128 x 128 window
             # Size: range x azimuth
-            if doc.runid==20190901:
+            ############################################
+
+            # 960 x 480 pixel
+            if doc.runid in [20190900]:
+                return (9,9)
+
+            # 480 x 240 pixel, 240 x 120 pixel
+            elif doc.runid in [20190901,201909010,201909012,201909013]:
                 return (5,5)
+
+            # 480 x 240 pixel, 120 x 60 pixel
+            elif doc.runid in [201909011, 201909014]:
+
+                if self.version == "v12":
+                    return (5,5)
+
+                elif self.version in ["v13", "v14"]:
+                    return (9,9)
+                else:
+                    raise Exception()
+
             # winsize = 240m x 240m, step 120m x 120m
             elif doc.runid ==20190904:
                 return (5,5)
@@ -1275,7 +1400,7 @@ class dense_offset():
                 return (5,3)
 
             # winsize 120m x 120m, step size 60 m x 60 m
-            elif doc.runid == 20190921:
+            elif str(doc.runid).startswith('20190921'):
                 return (5,5)
 
             # winsize 60m x 120m, step size 30 m x 60 m
@@ -1290,6 +1415,18 @@ class dense_offset():
             elif doc.runid == 20200102:
                 return (9,5)
 
+            elif doc.runid == 20200103:
+                return (9,5)
+
+            elif doc.runid == 20200104:
+                return (9,5)
+
+            elif doc.runid == 20200105:
+                return (9,5)
+
+            elif doc.runid == 20201001:
+                return (9,5)
+            
             else:
                 raise Exception("Need size of median filter")
 
@@ -1297,7 +1434,9 @@ class dense_offset():
 
             doc = self.doc
 
-            if doc.runid==20190901:
+            if str(doc.runid).startswith('20190900'):
+                return 7
+            elif str(doc.runid).startswith('20190901'):
                 return 7
             elif doc.runid==20190904:
                 return 7
@@ -1305,7 +1444,8 @@ class dense_offset():
                 return 7
 
             # winsize 120m x 120m, step size 60 m x 60 m
-            elif doc.runid == 20190921:
+            elif str(doc.runid).startswith('20190921'):
+
                 return 7
 
             # winsize 60m x 120m, step size 30 m x 60 m
@@ -1314,6 +1454,14 @@ class dense_offset():
             elif doc.runid == 20200101:
                 return 7
             elif doc.runid == 20200102:
+                return 7
+            elif doc.runid == 20200103:
+                return 7
+            elif doc.runid == 20200104:
+                return 7
+            elif doc.runid == 20200105:
+                return 7
+            elif doc.runid == 20201001:
                 return 7
             else:
                 raise Exception("Need size of Nan expand window")
@@ -1335,7 +1483,7 @@ class dense_offset():
             if do_step_0:
                 med1_data[data_snr<4] = np.nan
 
-            # Step 1:
+            # Step 1: set NaN value
             do_step_1 = True
             if do_step_1:
                 # Mask out where the reference is nan.
@@ -1345,11 +1493,10 @@ class dense_offset():
                 if mask is not None: 
                     med1_data[mask] = np.nan
 
-            # Step 2: normal median filter
+            # Step 2: Run median filter
             do_step_2 = True
             if do_step_2:
                 med2_data = np.copy(med1_data)
-                
                 med2_kernel_size = median_filter_window
                 #print(med2_kernel_size)
 
@@ -1383,8 +1530,8 @@ class dense_offset():
             else:
                 med3_data = np.copy(med2_data)
 
-
-            ## Step 4: set neighboring values of nans as nan.
+            
+            ## Step 4: set neighboring values of NaNs as NaN.
             do_step_4 = True
             if do_step_4:
     
@@ -1516,11 +1663,11 @@ class dense_offset():
             redo = 1
 
             # Remove the existed ones.
-            os.system('rm -r ' + doc.offset_folder + '/filt*' + self.filt_suffix + '.off')
+            os.system('rm -r ' + azOffsetName + '*')
+            os.system('rm -r ' + rngOffsetName + '*')
 
             ######################
             # Save azimuth offset.
-
             nbands = 1
             bandType = 6
 
@@ -1555,7 +1702,6 @@ class dense_offset():
                 dst_ds.GetRasterBand(1).WriteArray( rngOffset_filtered_ori, 0 ,0 )
                 dst_ds = None
 
-
                 outImg = isceobj.createImage()
                 outImg.setDataType('Float')
                 outImg.setFilename(os.path.join(doc.offset_folder, rngOffsetName))
@@ -1570,26 +1716,402 @@ class dense_offset():
             return 0
 
         #################### 2019.09.28 Developing for better filtering ####################
-        def _offset_filter_v2(self, offsetfield, offsetfile, snrfile, offsetLosFile, title, redo=True):
+        def _offset_filter_v2(self, offsetfield, offsetfile, snrfile, varfile, offsetLosFile, title, redo=True):
 
             # Filter the offset fields.
             # The intermediate unit is meter/day.
             # The final unit is still in pixel.
             doc = self.doc
 
-            if self.rb_suffix:
-                self.filt_suffix = self.filt_suffix + '_' + self.rb_suffix
-            else:
-                self.filt_suffix = self.filt_suffix
-
+            # output name
             azOffsetName = os.path.join(doc.offset_folder, 'filtAzimuth_' + self.filt_suffix  + '.off')
 
             rngOffsetName = os.path.join(doc.offset_folder, 'filtRange_' + self.filt_suffix + '.off')
+
+            varOffsetName = os.path.join(doc.offset_folder, 'filtOffsetVar_' + self.filt_suffix + '.off')
 
             redo_this = redo
             if os.path.exists(azOffsetName) and os.path.exists(rngOffsetName) and redo_this==False:
                 print("filtered offsetfield files exist")
                 return
+
+            # Read in raw offset fields
+            ds = gdal.Open(offsetfile)
+            azOffset = ds.GetRasterBand(1).ReadAsArray()
+            rngOffset = ds.GetRasterBand(2).ReadAsArray()
+
+            # Read in SNR
+            ds = gdal.Open(snrfile)
+            data_snr = ds.GetRasterBand(1).ReadAsArray()
+
+            # Read in Variance
+            ds = gdal.Open(varfile)
+            azOffsetVar = ds.GetRasterBand(1).ReadAsArray()
+            rngOffsetVar = ds.GetRasterBand(2).ReadAsArray()
+            azrngOffsetVar = ds.GetRasterBand(3).ReadAsArray()
+
+            # Filter variance and save it (median filter)
+            median_filter_window = self._get_median_filter_window()
+            filtered_azOffsetVar = mdf(azOffsetVar, kernel_size=median_filter_window)
+            filtered_rngOffsetVar = mdf(rngOffsetVar, kernel_size=median_filter_window)
+            filtered_azrngOffsetVar = mdf(azrngOffsetVar, kernel_size=median_filter_window)
+
+            nbands = 3
+            bandType = 6
+
+            driver = gdal.GetDriverByName( 'ENVI' )
+            dst_ds = driver.Create(varOffsetName, doc.numWinAcross, doc.numWinDown, nbands, bandType)
+            dst_ds.GetRasterBand(1).WriteArray(filtered_azOffsetVar, 0 ,0 )
+            dst_ds.GetRasterBand(2).WriteArray(filtered_rngOffsetVar, 0 ,0 )
+            dst_ds.GetRasterBand(3).WriteArray(filtered_azrngOffsetVar, 0 ,0 )
+            dst_ds = None
+
+            outImg = isceobj.createImage()
+            outImg.setDataType('Float')
+            outImg.setFilename(varOffsetName)
+            outImg.setBands(3)
+            outImg.scheme = 'BSQ'
+            outImg.setWidth(doc.numWinAcross)
+            outImg.setLength(doc.numWinDown)
+            outImg.setAccessMode('read')
+            outImg.renderHdr()
+            outImg.renderVRT()
+
+            # Read in incidence angle
+            ds = gdal.Open(offsetLosFile)
+            inc = ds.GetRasterBand(1).ReadAsArray()
+
+            # Generatre a mask for invalid values at margins (mostly useful for S1, GPU ampcor gives (-4, -4) to invalid cross-correlation))
+            # Alternative way is to use incidence angle in offsetLosFile, but could be wrong if offsetLosFile doesn't match offset field
+            # Mask: (True: invalid, False: valid)
+            
+            # old code uses (-4, -4)
+            # mask_of_invalid = np.logical_or(np.logical_and(azOffset==-4, rngOffset==-4), inc==0)
+
+            # Update 2020.01.02. The invaid value should be (-halfsearchwinAz, -halfsearchwinRng)
+            mask_of_invalid = np.logical_or(np.logical_and(azOffset == -doc.sh, rngOffset == -doc.sw), inc==0)
+
+            # Convert the unit from pixel to meter per day
+            azOffset = azOffset * doc.azPixelSize / doc.interim
+            rngOffset = rngOffset * doc.rngPixelSize / doc.interim
+
+            # Get reference offset field
+            refer_azOffset, refer_rngOffset, vmin_az, vmax_az, vmin_rng, vmax_rng = self._obtain_reference()
+ 
+            # Make a copy of the offset fields for later use
+            azOffset_copy = azOffset.copy()
+            rngOffset_copy = rngOffset.copy()
+
+            ###  Filter and correct offset field for miscoregistration ###
+            # Generate mask by comparison to reference. Values deviate too much from reference set as True. 
+            # This is used for deriving mis-coreg.
+            mask_by_reference = self._get_refer_mask(azOffset, refer_azOffset, rngOffset, refer_rngOffset, choice=2)
+
+            # Combine the mask of both invalid values and erroreous estimations
+            mask = np.logical_or(mask_of_invalid, mask_by_reference)
+
+            if postproc_verbose:
+                # Show the mask based on deviation from reference
+                plt.figure(1, figsize=(10,10))
+                plt.imshow(mask_of_invalid)
+                plt.title("The mask of invaid values based on invalid ampcor output and inc being 0")
+                plt.savefig('1.png')
+                plt.close(1)
+ 
+                plt.figure(2, figsize=(10,10))
+                plt.imshow(mask_by_reference)
+                plt.title("The mask based on deviation from reference offset fields")
+                plt.savefig('2.png')
+                plt.close(2)
+    
+                plt.figure(3, figsize=(10,10))
+                plt.imshow(mask)
+                plt.title("Combined mask of invalid values and values of large deviations")
+                plt.savefig('3.png')
+                plt.close(3)
+ 
+                # Show the original unfiltered and uncoregistered azimuth offset
+                fig = plt.figure(4, figsize=(10,10))
+                ax1 = fig.add_subplot(121)
+                im1 = ax1.imshow(azOffset,vmin=vmin_az, vmax=vmax_az, cmap=cm.jet)
+                fig.colorbar(im1)
+    
+                ax2 = fig.add_subplot(122)
+                im2 = ax2.imshow(rngOffset,vmin=vmin_rng, vmax=vmax_rng, cmap=cm.jet)
+                fig.colorbar(im2)
+    
+                plt.title("Original Ampcor azimuth offset and range offset")
+                plt.savefig('4.png')
+                plt.close(4)
+
+            ############ Run filtering ###############################
+            # 1) set the masked value to np.nan and 2) run 2-D median filter across the fields
+            filtered_azOffset = self._generic_median_filter(azOffset, data_snr, mask=mask, label='az',refer=refer_azOffset)
+            filtered_rngOffset = self._generic_median_filter(rngOffset, data_snr, mask=mask, label='rng',refer=refer_rngOffset)
+
+            # Manually remove and first and second swath (ad hoc to Ridgecreast Earthquake)
+            if self.stack == "tops_RC":
+                if self.trackname == "track_64":
+                    #filtered_azOffset[:,:644] = np.nan
+                    #filtered_azOffset[:,1369:] = np.nan
+                    #filtered_rngOffset[:,:644] = np.nan
+                    #filtered_rngOffset[:,1369:] = np.nan
+                    pass
+
+                elif self.trackname == "track_7101":
+                    pass
+
+            if postproc_verbose:
+                # Show the filtered range and azimuth offset
+                fig = plt.figure(5, figsize=(10,10))
+                ax1 = fig.add_subplot(121)
+                im1 = ax1.imshow(filtered_azOffset,vmin=vmin_az, vmax=vmax_az, cmap=cm.jet)
+                fig.colorbar(im1)
+    
+                ax2 = fig.add_subplot(122)
+                im2 = ax2.imshow(filtered_rngOffset,vmin=vmin_rng, vmax=vmax_rng, cmap=cm.jet)
+                fig.colorbar(im2)
+                
+                plt.title('Filtered but uncoregistered')
+                plt.savefig('5.png')
+
+
+            ## Miscoregistration estimation
+            # Step 1: Update mask for invalid values
+            # Explanation:
+            # Until here, mask_by_reference only contains bad value from get_refer_mask e.g. using choice = 2
+            # And mask has mask_by_reference plus the invalid value points, e.g. (-4,-4).
+            # See the code above for details.
+
+            # The median filter applied to get filtered_azOffset may introduce more nan values into the offset fields, 
+            # so the NaN in filtered_azOffset is a superset of Mask and Mask_by_reference
+            # Here, include these NaN into the mask_by_reference and update its name to mask.
+
+            # Old code:
+            mask_by_reference[np.isnan(filtered_azOffset)] = True
+            mask = mask_by_reference
+
+            # New code, which somehow doesn't work well
+            #mask = np.isnan(filtered_azOffset)
+
+            # 2021.01.02
+            # Ad hoc update of mask
+            if self.tracknumber == 12 and doc.runid==201909013 and self.version=="v13":
+                # set everything above 400 line to be masked value.
+                mask[:400,:] = True
+
+            if postproc_verbose:
+                # Show the mask corresponding the Nan value before miscoregistration correction
+                plt.figure(figsize=(10,10))
+                im = plt.imshow(mask)
+                plt.title("NaN value before miscoregistration correction")
+                plt.savefig('9.png')
+
+            ## Step 2: Estimate how complex the miscoregistration can be based on the valid control points
+            #good_ratio_seg1, good_ratio_seg2 = self._check_filtered_offsetfield(title, filtered_azOffset, filtered_rngOffset, refer_azOffset, refer_rngOffset)
+
+            #if good_ratio_seg1>=1/3 and good_ratio_seg2>=1/3:
+            #    misCoreg_order = 1
+            #else:
+            #    misCoreg_order = 0
+
+            ## Adjustment
+            #if self.version=="v10" or self.version=="v101" or self.version=="v11":
+            #    misCoreg_order = 0
+
+            #if doc.runid!=20190901 and self.version=="v12":
+            #    external_misCoreg = True
+
+            ## Only version 12 uses miscoregistration derived from lower resolution results
+            #else:
+            #    external_misCoreg = False
+
+            external_misCoreg = False
+            misCoreg_order = 0
+
+            # Step 3: Get miscoregistration
+            if external_misCoreg == False:
+                # Only non-masked values (non nan value, valid estimate) should be used for calculating miscoregistration
+
+                # Find "Controlling Points". Stationary places. Smaller than thrs m/d (Update 2020.03.14)
+                ind_stationary = self._get_stationary_points(refer_azOffset, refer_rngOffset)
+
+                # Remve invalid values from controlling points
+                ind_control_points = np.logical_and(ind_stationary, np.invert(mask))
+
+                # Calucate the micoregistration
+                az_mis, rng_mis = self._get_misCoreg(filtered_azOffset, filtered_rngOffset, refer_azOffset, refer_rngOffset, ind_control_points, order = misCoreg_order)
+
+            else:
+                #az_mis, rng_mis = self._load_misCoreg()
+                raise Exception("external misCoreg is turned off")
+
+            print('Estimated miscoregistration (azimuth & range): ', az_mis, rng_mis)
+
+            ### End of micoregistration estimation   
+
+            ################## Start a new round of filtering ##################
+            # Mis-coregistration correction.
+            miscoreg_correction = True
+
+            if miscoreg_correction:
+
+                # Do miscoregistration for stripmap
+                if self.stack == "stripmap":
+                    print("Perform miscoregistration correction")
+                    azOffset = azOffset_copy - az_mis
+                    rngOffset = rngOffset_copy - rng_mis
+
+                # Don't do miscoregistration for tops
+                elif self.stack == "tops":
+
+                    if self.version in ['v12']:
+                        print("Perform miscoregistration correction")
+                        azOffset = azOffset_copy - az_mis
+                        rngOffset = rngOffset_copy - rng_mis
+                    else:
+                        print("Skip miscoregistration")
+                        azOffset = azOffset_copy
+                        rngOffset = rngOffset_copy
+
+            # Get new mask by reference (choice = 3!)
+            mask_by_reference = self._get_refer_mask(azOffset, refer_azOffset, rngOffset, refer_rngOffset, choice=3)
+            # Combine the mask of both invalid values and erroreous estimations
+            mask = np.logical_or(mask_of_invalid, mask_by_reference)
+
+            # Show the new mask
+            if postproc_verbose:
+                # Show the mask based on deviation from reference
+                plt.figure(12, figsize=(10,10))
+                plt.imshow(mask_by_reference)
+                plt.title("The first mask after miscoreg correction: mask based on deviation from reference offset fields (strict or stationary points)")
+                plt.savefig('12.png')
+     
+                plt.figure(13, figsize=(10,10))
+                plt.imshow(mask)
+                plt.title("Combined mask of invalid values (-4, -4) and values of large deviations after micoregistration correction")
+                plt.savefig('13.png')
+ 
+            # Filtering
+            filtered_azOffset = self._generic_median_filter(azOffset, data_snr, mask=mask, label='az',refer=refer_azOffset)
+            filtered_rngOffset = self._generic_median_filter(rngOffset, data_snr, mask=mask, label='rng',refer=refer_rngOffset)
+
+            if postproc_verbose:
+                # Show the filtered and coregistered offset fields
+                fig = plt.figure(10, figsize=(10,10))
+                ax1 = fig.add_subplot(121)
+                im1 = ax1.imshow(filtered_azOffset,vmin=vmin_az, vmax=vmax_az, cmap=cm.jet)
+                fig.colorbar(im1)
+    
+                ax2 = fig.add_subplot(122)
+                im2 = ax2.imshow(filtered_rngOffset,vmin=vmin_rng, vmax=vmax_rng, cmap=cm.jet)
+                fig.colorbar(im2)
+                
+                plt.title('Filtered and coregistered')
+                plt.savefig('10.png')
+
+            ################## End of the second round of filtering
+
+            ############# SAVE to ENVI files ############################
+            # Convert the unit from meter per day to pixel.
+            # Save the offset fields.
+            self._save_az_rng(filtered_azOffset, azOffsetName, filtered_rngOffset, rngOffsetName)
+
+            ############ Plot the results ##############################
+            #self._plot_offsetfield(offsetfield)
+
+            return 0
+
+        def offset_filter(self, s_date=None, e_date=None):
+
+            doc = self.doc
+
+            # Perform segmentation
+            self._segmentation()
+
+            for count, offsetfield in enumerate(self.offsetfields):
+                #if count>0:
+                #    break
+
+                date1str, date2str, date1, date2 = offsetfield
+
+                # Skip the dates outside of the range.
+                if s_date is not None and date1 < s_date.date():
+                    continue
+
+                if e_date is not None and date2 > e_date.date():
+                    continue
+
+                doc.interim = (date2-date1).days
+
+                doc.offset_folder = os.path.join(self.trackfolder,self.offsetFolder, date1str+'_'+date2str)
+
+                offset_outprefix = os.path.join(doc.offset_folder,doc.outprefix)
+
+                # Prepare the corresponding files.
+                offsetfile = offset_outprefix + '_run_' + str(doc.runid) + '.bip'
+                snrfile = offset_outprefix + '_run_' + str(doc.runid) + '_snr.bip'
+                varfile = offset_outprefix + '_run_' + str(doc.runid) + '_cov.bip'
+
+                offsetLosFile = doc.offsetLosFile
+
+                # Check if the files exist
+                if not os.path.exists(offsetfile) or not os.path.exists(snrfile):
+                    print("The offset field file doesn't exist")
+                    print("skip ", date1str+'_'+date2str)
+                    continue
+                else:
+                    print("Offset field file exists")
+
+                title = date1str + '_' + date2str
+
+                # check if we should do it
+                exist = False
+
+                if exist == False:
+                    print('Should work on', title)
+                    
+                    if self.exe == True:
+                    #if self.exe == True or title == "20180223_20180303":
+
+                        print('work on it!')
+                        
+                        func = self._offset_filter_v2
+
+                        p = Process(target=func, args=(offsetfield, offsetfile, snrfile, varfile, offsetLosFile, title,))
+                        self.jobs.append(p)
+                        p.start()
+                        self.doc_count = self.doc_count + 1
+
+                        # nprocess controller
+                        if self.doc_count == self.nproc['maskandfilter'] or count==len(self.offsetfields)-1:
+                            #for ip in range(self.nproc['maskandfilter']):
+                            for ip in range(len(self.jobs)):
+                                print(ip)
+                                self.jobs[ip].join() #wait here
+
+                            self.doc_count = 0
+                            self.jobs = []
+
+            return 0
+
+
+        # For pair mode (currenly used for rubber sheeting)
+        def _offset_filter_pair(self, offsetfile, snrfile, offsetLosFile, title, iter_num, miscoregfile):
+
+            # Filter the offset fields.
+            # The intermediate unit is meter/day.
+            # The final unit is still in pixel.
+            doc = self.doc
+            rs_suffix = str(iter_num)
+
+            azOffsetName = os.path.join(doc.offset_folder, 'filtAzimuth_' + self.filt_suffix + '_' + rs_suffix  + '.off')
+            rngOffsetName = os.path.join(doc.offset_folder, 'filtRange_' + self.filt_suffix + '_' + rs_suffix + '.off')
+
+            redo = False
+            if os.path.exists(azOffsetName) and os.path.exists(rngOffsetName) and redo==False:
+                print("filtered offsetfield files exist")
+                return (azOffsetName, rngOffsetName)
 
             # Read in raw offset fields
             ds = gdal.Open(offsetfile)
@@ -1614,8 +2136,16 @@ class dense_offset():
             rngOffset = rngOffset * doc.rngPixelSize / doc.interim
 
             # Get reference offset field
-            refer_azOffset, refer_rngOffset, vmin_az, vmax_az, vmin_rng, vmax_rng = self._obtain_reference()
- 
+            # In the first iteration, use the global offset field
+            if iter_num==0:
+                refer_azOffset, refer_rngOffset, vmin_az, vmax_az, vmin_rng, vmax_rng = self._obtain_reference()
+
+            # Other wise the residual should be sub-pixek
+            else:
+                refer_azOffset = np.zeros(shape=azOffset.shape)
+                refer_rngOffset = np.zeros(shape=rngOffset.shape)
+                vmin_az, vmax_az, vmin_rng, vmax_rng = -0.1, 0.1, -0.1, 0.1
+
             # Make a copy of the offset fields for later use
             azOffset_copy = azOffset.copy()
             rngOffset_copy = rngOffset.copy()
@@ -1628,15 +2158,23 @@ class dense_offset():
 
             if postproc_verbose:
                 # Show the mask based on deviation from reference
+                plt.figure(1, figsize=(10,10))
+                plt.imshow(mask_of_invalid)
+                plt.title("The mask of invaid values of ampcor")
+                plt.savefig('1.png')
+                plt.close(1)
+ 
                 plt.figure(2, figsize=(10,10))
                 plt.imshow(mask_by_reference)
-                plt.title("The first mask: mask based on deviation from reference offset fields")
+                plt.title("The mask based on deviation from reference offset fields")
                 plt.savefig('2.png')
-     
+                plt.close(2)
+    
                 plt.figure(3, figsize=(10,10))
                 plt.imshow(mask)
-                plt.title("Combined mask of invalid values (-4, -4) and values of large deviations")
+                plt.title("Combined mask of invalid values and values of large deviations")
                 plt.savefig('3.png')
+                plt.close(3)
     
                 # Show the original unfiltered and uncoregistered azimuth offset
                 fig = plt.figure(4, figsize=(10,10))
@@ -1651,22 +2189,12 @@ class dense_offset():
                 plt.title("Original Ampcor azimuth offset and range offset")
                 plt.savefig('4.png')
 
+            print(stop)
+
             ############ Run filtering ###############################
             # 1) set the masked value to np.nan and 2) run 2-D median filter across the fields
             filtered_azOffset = self._generic_median_filter(azOffset, data_snr, mask=mask, label='az',refer=refer_azOffset)
             filtered_rngOffset = self._generic_median_filter(rngOffset, data_snr, mask=mask, label='rng',refer=refer_rngOffset)
-
-            # Manually remove and first and second swath (ad hoc to Ridgecreast Earthquake)
-            if self.stack == "tops_RC":
-                if self.trackname == "track_64":
-                    #filtered_azOffset[:,:644] = np.nan
-                    #filtered_azOffset[:,1369:] = np.nan
-                    #filtered_rngOffset[:,:644] = np.nan
-                    #filtered_rngOffset[:,1369:] = np.nan
-                    pass
-
-                elif self.trackname == "track_7101":
-                    pass
 
             if postproc_verbose:
                 # Show the filtered range and azimuth offset
@@ -1705,107 +2233,34 @@ class dense_offset():
                 plt.title("NaN value before miscoregistration correction")
                 plt.savefig('9.png')
 
-#            # Step 2: Estimate how complex the miscoregistration can be based on the valid control points
-#            good_ratio_seg1, good_ratio_seg2 = self._check_filtered_offsetfield(title, filtered_azOffset, filtered_rngOffset, refer_azOffset, refer_rngOffset)
-#
-#            if good_ratio_seg1>=1/3 and good_ratio_seg2>=1/3:
-#                misCoreg_order = 1
-#            else:
-#                misCoreg_order = 0
-#
-#            # Adjustment
-#            if self.version=="v10" or self.version=="v101" or self.version=="v11":
-#                misCoreg_order = 0
-#
-#            if doc.runid!=20190901 and self.version=="v12":
-#                external_misCoreg = True
-#
-#            # Only version 12 uses miscoregistration derived from lower resolution results
-#            else:
-#                external_misCoreg = False
-
             external_misCoreg = False
             misCoreg_order = 0
+
             # Step 3: Get miscoregistration
             if external_misCoreg == False:
+                
                 # Only non-masked values (non nan value, valid estimate) should be used for calculating miscoregistration
                 # Find "Controlling Points". Stationary places. Smaller than thrs m/d (Update 2020.03.14)
                 ind_stationary = self._get_stationary_points(refer_azOffset, refer_rngOffset)
+
                 # Remve invalid values from controlling points
                 ind_control_points = np.logical_and(ind_stationary, np.invert(mask))
+
                 # Calucate the micoregistration
-                az_mis, rng_mis = self._get_misCoreg(filtered_azOffset, filtered_rngOffset, refer_azOffset, refer_rngOffset, ind_control_points, order = misCoreg_order)
+                # When iter_num=1, save the miscoregistration
+                az_mis, rng_mis = self._get_misCoreg(filtered_azOffset, filtered_rngOffset, refer_azOffset, refer_rngOffset, ind_control_points, order = misCoreg_order, save_miscoreg = (iter_num==1))
+            
             else:
-                print(stop)
+                raise Exception("Not implemented")
                 az_mis, rng_mis = self._load_misCoreg()
 
             print('Estimated miscoregistration (azimuth & range): ', az_mis, rng_mis)
 
-            ### End of micoregistration estimation   
+            ### End of micoregistration estimation 
 
             # For rubbersheeting, there is no miscoregistration
-            if self.run_mode == "pair_rb":
-                print("pair rb mode, no miscoregistration correction")
-                miscoreg_correction = False
-
-                # record the miscoregistration
-                self.az_mis = az_mis
-                self.rng_mis = rng_mis
-
-            else:
-                ################## Start a new round of filtering ############################
-                # Mis-coregistration correction.
-
-                miscoreg_correction = True
-                
-                if miscoreg_correction:
-                    if self.stack == "stripmap":
-                        print("Perform miscoregistration correction")
-                        azOffset = azOffset_copy - az_mis
-                        rngOffset = rngOffset_copy - rng_mis
-
-                    elif self.stack == "tops":
-                        print("Skip miscoregistration")
-                        azOffset = azOffset_copy
-                        rngOffset = rngOffset_copy
-
-                # Get new mask by reference (choice = 3!)
-                mask_by_reference = self._get_refer_mask(azOffset, refer_azOffset, rngOffset, refer_rngOffset, choice=3)
-                # Combine the mask of both invalid values and erroreous estimations
-                mask = np.logical_or(mask_of_invalid, mask_by_reference)
-    
-                # Show the new mask
-                if postproc_verbose:
-                    # Show the mask based on deviation from reference
-                    plt.figure(12, figsize=(10,10))
-                    plt.imshow(mask_by_reference)
-                    plt.title("The first mask after miscoreg correction: mask based on deviation from reference offset fields (strict or stationary points)")
-                    plt.savefig('12.png')
-         
-                    plt.figure(13, figsize=(10,10))
-                    plt.imshow(mask)
-                    plt.title("Combined mask of invalid values (-4, -4) and values of large deviations after micoregistration correction")
-                    plt.savefig('13.png')
-     
-                # Filtering
-                filtered_azOffset = self._generic_median_filter(azOffset, data_snr, mask=mask, label='az',refer=refer_azOffset)
-                filtered_rngOffset = self._generic_median_filter(rngOffset, data_snr, mask=mask, label='rng',refer=refer_rngOffset)
-    
-                if postproc_verbose:
-                    # Show the filtered and coregistered offset fields
-                    fig = plt.figure(10, figsize=(10,10))
-                    ax1 = fig.add_subplot(121)
-                    im1 = ax1.imshow(filtered_azOffset,vmin=vmin_az, vmax=vmax_az, cmap=cm.jet)
-                    fig.colorbar(im1)
-        
-                    ax2 = fig.add_subplot(122)
-                    im2 = ax2.imshow(filtered_rngOffset,vmin=vmin_rng, vmax=vmax_rng, cmap=cm.jet)
-                    fig.colorbar(im2)
-                    
-                    plt.title('Filtered and coregistered')
-                    plt.savefig('10.png')
-
-            ################## End of the second round of filtering
+            print("pair mode, no miscoregistration correction")
+            miscoreg_correction = False
 
             ############# SAVE to ENVI files ############################
             # Convert the unit from meter per day to pixel.
@@ -1815,78 +2270,9 @@ class dense_offset():
             ############ Plot the results ##############################
             #self._plot_offsetfield(offsetfield)
             
-            return 0
+            return (azOffsetName, rngOffsetName)
 
-        def offset_filter(self, s_date=None, e_date=None):
-
-            doc = self.doc
-
-            # Perform segmentation
-            self._segmentation()
-
-            for count, offsetfield in enumerate(self.offsetfields):
-
-                date1str, date2str, date1, date2 = offsetfield
-
-                # Skip the dates outside of the range.
-                if s_date is not None and date1 < s_date.date():
-                    continue
-
-                if e_date is not None and date2 > e_date.date():
-                    continue
-
-                doc.interim = (date2-date1).days
-
-                doc.offset_folder = os.path.join(self.trackfolder,self.offsetFolder, date1str+'_'+date2str)
-
-                offset_outprefix = os.path.join(doc.offset_folder,doc.outprefix)
-
-                # Prepare the corresponding files.
-                offsetfile = offset_outprefix + '_run_' + str(doc.runid) + '.bip'
-                snrfile = offset_outprefix + '_run_' + str(doc.runid) + '_snr.bip'
-
-                offsetLosFile = doc.offsetLosFile
-
-                # Check if the files exist
-                if not os.path.exists(offsetfile) or not os.path.exists(snrfile):
-                    print("The offset field file doesn't exist")
-                    print("skip ", date1str+'_'+date2str)
-                    continue
-                else:
-                    print("Offset field file exists")
-
-                title = date1str + '_' + date2str
-
-                # check if we should do it
-                exist = False
-
-                if exist == False:
-                    print('Should work on', title)
-                    
-                    if self.exe == True:
-
-                        print('work on it!')
-                        
-                        func = self._offset_filter_v2
-
-                        p = Process(target=func, args=(offsetfield, offsetfile, snrfile, offsetLosFile, title,))
-                        self.jobs.append(p)
-                        p.start()
-                        self.doc_count = self.doc_count + 1
-
-                        # nprocess controller
-                        if self.doc_count == self.nproc['maskandfilter'] or count==len(self.offsetfields)-1:
-                            #for ip in range(self.nproc['maskandfilter']):
-                            for ip in range(len(self.jobs)):
-                                print(ip)
-                                self.jobs[ip].join() #wait here
-
-                            self.doc_count = 0
-                            self.jobs = []
-
-            return 0
-
-        def offset_filter_pair_iter(self, iter_num, exe=False, redo=True):
+        def offset_filter_pair(self, iter_num, offsetfile, exe=False):
 
             doc = self.doc
 
@@ -1897,34 +2283,35 @@ class dense_offset():
             doc.offset_folder = os.path.join(self.runfolder, self.offsetFolder, date1str+'_'+date2str)
 
             # Prefix & suffix
-            rb_suffix = self.rb_suffix 
+            rs_suffix = str(iter_num)
             offset_outprefix = os.path.join(doc.offset_folder,doc.outprefix)
-            offset_outsuffix = '_run_' + str(doc.runid)+ '_' + rb_suffix
+            offset_outsuffix = '_run_' + str(doc.runid)+ '_' + rs_suffix
 
             # Prepare the corresponding files.
-            offsetfile = offset_outprefix + offset_outsuffix + '.bip'
-            snrfile = offset_outprefix + offset_outsuffix + '_snr.bip'
+            #print(offsetfile)
+            head, tail = offsetfile.split('.',-1)
+            snrfile = head + '_snr' + '.bip'
             offsetLosFile = doc.offsetLosFile
+
+            miscoregfile =  doc.offset_folder + '/' + 'miscoreg.pkl'
 
             # Check if the files exist
             if not os.path.exists(offsetfile) or not os.path.exists(snrfile):
                 print("The offset field file doesn't exist")
                 print("skip ", date1str+'_'+date2str)
-                return
+                return 0
+            else:
+                exist = False
 
             title = date1str + '_' + date2str
-
-            # check if we should do it
-            exist = False
 
             if exist == False:
                 print('Should work on', title)
                 if exe == True:
                     print('work on it!')
-                    self._offset_filter_v2(offsetfile, snrfile, offsetLosFile, title, redo=redo)
+                    azimuth_offset_field, range_offset_field = self._offset_filter_pair(offsetfile, snrfile, offsetLosFile, title, iter_num, miscoregfile)
 
-            return 0
-
+            return (azimuth_offset_field, range_offset_field)
 
         def postprocess(self, s_date=None, e_date=None):
 
@@ -1945,8 +2332,8 @@ class dense_offset():
             if filtered_azOffset is None or filtered_rngOffset is None:
 
                 # Check filtered offset field files
-                if self.rb_suffix:
-                    self.filt_suffix = self.filt_suffix + '_' + self.rb_suffix
+                if self.rs_suffix:
+                    self.filt_suffix = self.filt_suffix + '_' + self.rs_suffix
                 else:
                     self.filt_suffix = self.filt_suffix
     
@@ -2027,15 +2414,8 @@ class dense_offset():
 
             doc = self.doc
 
-            # Reference
-            # For glacier applications, load the predicted offset fields.
-            if self.stack in ["tops","stripmap"] and (self.run_mode=="stack" or self.run_mode=="pair_rb" and self.rb_iter_num==0):
-                refer_azOffset = doc.grossDown
-                refer_rngOffset = doc.grossAcross
-            # For tectonic geodesy (e.g. Ridgecrest Earthquake), the reference is simply zero.
-            else:
-                refer_azOffset = np.zeros(shape=azOffset.shape)
-                refer_rngOffset = np.zeros(shape=rngOffset.shape)
+            refer_azOffset = doc.grossDown
+            refer_rngOffset = doc.grossAcross
 
             # Convert reference from "pixel per day" to "meter per day".
             refer_azOffset = refer_azOffset * doc.azPixelSize
@@ -2216,12 +2596,37 @@ class dense_offset():
         def _get_trim_size(self):
 
             doc = self.doc
-            if doc.runid==20190901:
+            # csk-r
+            # 960 x 480, 240 x 120
+            if doc.runid in [20190900]:
                 return 45
+            # 480 x 240, 240 x 120
+            elif doc.runid in [20190901,201909010,201909012,201909013]:
+                return 45
+            # 480 x 240, 120 x 60
+            elif doc.runid in [201909011, 201909014]:
+                #return 22
+                return 25
             elif doc.runid == 20190904:
                 return 25
             elif doc.runid == 20190921:
                 return 15
+            
+            # s1-e
+            elif doc.runid == 20200102:
+                return 30
+            elif doc.runid == 20200103:
+                return 30
+            elif doc.runid == 20200104:
+                return 30
+            elif doc.runid == 20200105:
+                return 30
+            elif doc.runid == 20180703:
+                return 0
+
+            # tectonic
+            elif doc.runid == 20201001:
+                return 0
             else:
                 raise Exception("Trim size undefined")
 
@@ -2243,7 +2648,7 @@ class dense_offset():
                 data_idx = np.where(data_b1[:,j]!=0)
                 first_idx = data_idx[0][0]
                 last_idx = data_idx[0][-1]
-                print(first_idx, last_idx)
+                #print(first_idx, last_idx)
                 mask[first_idx : first_idx + trim_size, j] = 1
                 mask[last_idx - trim_size + 1 : last_idx+1, j] = 1
 
@@ -2254,7 +2659,7 @@ class dense_offset():
             # Write data
             dirname = os.path.dirname(filename)
             basefilename, ending = os.path.basename(filename).split(".")
-            new_filename = os.path.join(dirname, basefilename+'_new'+"."+ending)
+            new_filename = os.path.join(dirname, basefilename+'_trim' + '_' + str(trim_size) + "." + ending)
             print("new_filename: ", new_filename)
 
             nbands = 2
@@ -2266,7 +2671,6 @@ class dense_offset():
             dst_ds.GetRasterBand(2).WriteArray( data_b2, 0 ,0 )
             dst_ds = None
 
-            #print(stop)
             return 0
 
         def _geocode(self,s_date=None,e_date=None):
@@ -2275,6 +2679,9 @@ class dense_offset():
 
             latfile = doc.offsetLatFile
             lonfile = doc.offsetLonFile
+            hgtfile = doc.offsetHgtFile
+            demfactorfile = doc.offsetDemFactorFile
+
             losfile = doc.offsetLosFile
 
             # Figure out the bbox
@@ -2288,7 +2695,7 @@ class dense_offset():
                 
                 # Define grid, Rutford Lat ~= 78.5, r = 1270 km
                 # R/r = 6371 / 1270 = 5
-                if doc.runid in [20190921, 20190904, 20190901]:
+                if str(doc.runid).startswith(('20190921', '20190904', '20190901','20190900')):
                     # Define grid to be 110m x 110m
                     # Lat uses R, Lon uses r
                     # 120/((2*math.pi*6371000)/360)
@@ -2312,6 +2719,19 @@ class dense_offset():
                     lat_step = 0.005
                     lon_step = 0.02
 
+                # new S1 480 x 120
+                elif doc.runid == 20200103:
+                    lat_step = 0.005
+                    lon_step = 0.02
+                
+                elif doc.runid == 20200104:
+                    lat_step = 0.005
+                    lon_step = 0.02
+
+                # new S1 960 x 240
+                elif doc.runid == 20200105:
+                    lat_step = 0.005
+                    lon_step = 0.02
                 else:
                     # Define grid, approximate 500 x 500 m (important) for Evans
                     #lon_step = 0.02
@@ -2323,36 +2743,66 @@ class dense_offset():
                 lon_step = 0.002
                 lat_step = 0.002
 
+
+            # Geocode height file
+            print('Geocoding Hgt file ...')
+            cmd00 = 'geocodeGdal_mod.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + hgtfile + ' -b ' + bbox_SNWE + ' --suffix ' + self.version
+            print(cmd00)
+
+            # Geocode demfactor file
+            print('Geocoding DemFactor file ...')
+            cmd01 = 'geocodeGdal_mod.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + demfactorfile + ' -b ' + bbox_SNWE + ' --suffix ' + self.version
+            print(cmd01)
+ 
             # Geocode LOS file.
             print('Geocoding LOS file ...')
-            cmd1 = 'geocodeGdal.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + losfile + ' -b ' + bbox_SNWE + ' --suffix ' + self.version
-            print(cmd1)
-
+            cmd1 = 'geocodeGdal_mod.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + losfile + ' -b ' + bbox_SNWE + ' --suffix ' + self.version
+            
             filedir = os.path.dirname(losfile)
             losfilename, ending = os.path.basename(losfile).rsplit(".",1)
             gc_losfile = os.path.join(filedir,'gc_' + losfilename + '_' + self.version)+ "." + ending
+            print(cmd1)
 
             # Convert to observational vectors
             print('Convert LOS to observational vectors ...')
             cmd2 = 'los2enu.py -los {losfile}'.format(losfile = gc_losfile)
             print(cmd2)
 
-            forceDoLos = False
-            if self.exe or forceDoLos:
+            force_run = False
+            if force_run:
+                print("Forced run...")
+                #print(cmd01)
+                #os.system(cmd01)
+
+                print('Trim los border')
+                # Trim the los file to remove the extrapolation on the borders
+                self._trim_borders(gc_losfile)
+
+            if self.exe:
                 # Delete the old files.
                 os.system('rm ' + self.trackfolder + '/' + self.geometry + '/gc*' + str(doc.runid) + '*' + self.version + '*' )
                 os.system('rm ' + self.trackfolder + '/' + self.geometry + '/temp*')
 
-                # Geocoding
+                # Geocoding Hgt
+                print('Geocode HGT...')
+                os.system(cmd00)
+
+                # Geocoding DemFactor
+                print('Geocode DemFactor...')
+                os.system(cmd01)
+
+                # Geocoding Los
+                print('Geocode LOS...')
                 os.system(cmd1)
 
+                print('Trim los border')
                 # Trim the los file to remove the extrapolation on the borders
                 self._trim_borders(gc_losfile)
 
                 # Conversion
                 os.system(cmd2)
             else:
-                print("Not executed")
+                print("Geocode LOS is not executed")
 
             # Wait here until finish
             time.sleep(1)
@@ -2383,7 +2833,8 @@ class dense_offset():
                 offset_outprefix = os.path.join(doc.offset_folder,doc.outprefix)
 
                 # The covariance file to be geocoded
-                covfile = offset_outprefix + '_run_' + str(doc.runid) + '_cov.bip'
+                raw_covfile = offset_outprefix + '_run_' + str(doc.runid) + '_cov.bip'
+                filtered_covfile = os.path.join(doc.offset_folder, 'filtOffsetVar_' + self.filt_suffix + '.off')
 
                 # The snr file to be geocoded
                 snrfile = offset_outprefix + '_run_' + str(doc.runid) + '_snr.bip'
@@ -2397,23 +2848,22 @@ class dense_offset():
                 gc_azOffset = os.path.join(doc.offset_folder, 'gc_filtAzimuth_' + self.filt_suffix + '.off')
                 gc_rngOffset = os.path.join(doc.offset_folder, 'gc_filtRange_' + self.filt_suffix + '.off')
 
-
                 #resamplingMethod = "near"
                 resamplingMethod = "bilinear"
 
-                cmd1 = 'geocodeGdal.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + azOffset + ' -b ' + bbox_SNWE + ' -r ' + resamplingMethod
+                cmd1 = 'geocodeGdal_mod.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + azOffset + ' -b ' + bbox_SNWE + ' -r ' + resamplingMethod
 
-                cmd2 = 'geocodeGdal.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + rngOffset + ' -b ' + bbox_SNWE + ' -r ' + resamplingMethod
+                cmd2 = 'geocodeGdal_mod.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + rngOffset + ' -b ' + bbox_SNWE + ' -r ' + resamplingMethod
 
                 # geocode covariance file
-                cmd3 = 'geocodeGdal.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + covfile + ' -b ' + bbox_SNWE + ' -r ' + resamplingMethod + ' --suffix ' + self.version
+                cmd3 = 'geocodeGdal_mod.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + raw_covfile + ' -b ' + bbox_SNWE + ' -r ' + resamplingMethod + ' --suffix ' + self.version
+
+                cmd4 = 'geocodeGdal_mod.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + filtered_covfile + ' -b ' + bbox_SNWE + ' -r ' + resamplingMethod
 
                 # geocode SNR file
-                cmd4 = 'geocodeGdal.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + snrfile + ' -b ' + bbox_SNWE + ' -r ' + resamplingMethod + ' --suffix ' + self.version
-
+                cmd5 = 'geocodeGdal_mod.py -l ' + latfile + ' -L ' + lonfile + ' -x ' + str(lon_step) + ' -y ' + str(lat_step) + ' -f ' + snrfile + ' -b ' + bbox_SNWE + ' -r ' + resamplingMethod + ' --suffix ' + self.version
 
                 # Parallel computing is problematic (seems to be fixed).
-
                 forceDo = False
                 #if not os.path.exists(gc_azOffset) or not os.path.exists(gc_rngOffset):
                 #    print("The geocoded files do not exist!")
@@ -2422,14 +2872,18 @@ class dense_offset():
 
                 # check if we should do it
                 if self.exe or forceDo:
-                    # Remove the old files
-                    os.system('rm ' + doc.offset_folder + '/gc*' + str(doc.runid) + "*" + self.version + "*")
-                    os.system('rm ' + doc.offset_folder + '/*temp*')
+                    normal = True
+                    if normal:
+                        # Remove the old files
+                        os.system('rm ' + doc.offset_folder + '/gc*' + str(doc.runid) + "*" + self.version + "*")
+                        os.system('rm ' + doc.offset_folder + '/*temp*')
 
-                    # Run the new commands
-                    func =  globals()['run_denseoffset_bash']
-                    p = Process(target=func, args=([cmd1,cmd2,cmd3,cmd4], (self.exe or forceDo)))
-                    #p = Process(target=func, args=([cmd4], (self.exe or forceDo)))
+                        # Run the new commands
+                        func =  globals()['run_denseoffset_bash']
+                        p = Process(target=func, args=([cmd1,cmd2,cmd3,cmd4,cmd5], (self.exe or forceDo)))
+                    else:
+                        func =  globals()['run_denseoffset_bash']
+                        p = Process(target=func, args=([cmd4], (self.exe or forceDo)))
 
                     self.jobs.append(p)
                     p.start()
@@ -2451,6 +2905,7 @@ class dense_offset():
                     print(cmd2)
                     print(cmd3)
                     print(cmd4)
+                    print(cmd5)
                     print("Not executed")
 
             return 0
@@ -2460,8 +2915,8 @@ class dense_offset():
 
         ################## End of geocoding ##############################
 
-        def _plot_offsetfield(self, offsetfield):
-
+        def _plot_offsetfield(self, offsetfield, option):
+            # option = rdr, geo or both
             doc = self.doc
 
             date1str, date2str, date1, date2 = offsetfield
@@ -2470,71 +2925,175 @@ class dense_offset():
 
             doc.interim = (date2 - date1).days
 
-            doc.offset_folder = os.path.join(self.trackfolder,self. offsetFolder, date1str + '_' + date2str)
+            doc.offset_folder = os.path.join(self.trackfolder, self.offsetFolder, date1str + '_' + date2str)
 
-            # Obtain filtered offset field
-            azOffsetName = os.path.join(doc.offset_folder,'filtAzimuth_' + self.filt_suffix + '.off')
-            rngOffsetName = os.path.join(doc.offset_folder, 'filtRange_' + self.filt_suffix + '.off')
+            # offset field
+            if "rdr" in option or "both" in option:
+                # Obtain filtered offset field
+                azOffsetName = os.path.join(doc.offset_folder,'filtAzimuth_' + self.filt_suffix + '.off')
+                rngOffsetName = os.path.join(doc.offset_folder, 'filtRange_' + self.filt_suffix + '.off')
+    
+                ds = gdal.Open(azOffsetName)
+                filtered_azOffset = ds.GetRasterBand(1).ReadAsArray()
+    
+                ds = gdal.Open(rngOffsetName)
+                filtered_rngOffset = ds.GetRasterBand(1).ReadAsArray()
+    
+                # Convert from the unit from pixel to meter per day
+                filtered_azOffset = filtered_azOffset * doc.azPixelSize / doc.interim
+                filtered_rngOffset = filtered_rngOffset *  doc.rngPixelSize / doc.interim
+    
+                # Get reference offset field
+                refer_azOffset, refer_rngOffset, vmin_az, vmax_az, vmin_rng, vmax_rng = self._obtain_reference()
+    
+                # Get raw offset field
+                offset_outprefix = os.path.join(doc.offset_folder, doc.outprefix)
+                offsetfile = offset_outprefix + '_run_' + str(doc.runid) + '.bip'
+    
+                ds = gdal.Open(offsetfile)
+                raw_azOffset = ds.GetRasterBand(1).ReadAsArray()
+                raw_rngOffset = ds.GetRasterBand(2).ReadAsArray()
+    
+                # Convert from the unit from pixel to meter per day
+                raw_azOffset = raw_azOffset * doc.azPixelSize / doc.interim
+                raw_rngOffset = raw_rngOffset *  doc.rngPixelSize / doc.interim
+    
+                # Get Cov of raw offset field
+                offsetVarfile = offset_outprefix + '_run_' + str(doc.runid) + '_cov.bip'
+                ds = gdal.Open(offsetVarfile)
+                raw_azOffsetVar = ds.GetRasterBand(1).ReadAsArray()
+                raw_rngOffsetVar = ds.GetRasterBand(2).ReadAsArray()
+   
+                # Get Cov of filtered offset field 
+                filteredOffsetVarfile = os.path.join(doc.offset_folder,'filtOffsetVar_' + self.filt_suffix + '.off')
+                ds = gdal.Open(filteredOffsetVarfile)
+                filtered_azOffsetVar = ds.GetRasterBand(1).ReadAsArray()
+                filtered_rngOffsetVar = ds.GetRasterBand(2).ReadAsArray()
+    
+                # Convert from var in pixel to std in meter
+                raw_azOffsetStd = np.sqrt(raw_azOffsetVar) * doc.azPixelSize
+                raw_rngOffsetStd =  np.sqrt(raw_rngOffsetVar) * doc.rngPixelSize
+    
+                filtered_azOffsetStd = np.sqrt(filtered_azOffsetVar) * doc.azPixelSize
+                filtered_rngOffsetStd =  np.sqrt(filtered_rngOffsetVar) * doc.rngPixelSize
+    
+                # Save the file as objects to disk and plot them later
+                filtered_offset_folder = disp_temp_folder
+                
+                filtered_offset = {}
+                filtered_offset['refer_azOffset'] = refer_azOffset
+                filtered_offset['refer_rngOffset'] = refer_rngOffset
+    
+                filtered_offset['raw_azOffset'] = raw_azOffset
+                filtered_offset['raw_rngOffset'] = raw_rngOffset
+    
+                filtered_offset['raw_azOffsetStd'] = raw_azOffsetStd
+                filtered_offset['raw_rngOffsetStd'] = raw_rngOffsetStd
+    
+                filtered_offset['filtered_azOffsetStd'] = filtered_azOffsetStd
+                filtered_offset['filtered_rngOffsetStd'] = filtered_rngOffsetStd
+    
+                filtered_offset['filtered_azOffset'] = filtered_azOffset
+                filtered_offset['filtered_rngOffset'] = filtered_rngOffset
+    
+                figdir = os.path.join(self.workdir, 'figs', self.trackname,'radar')
+                os.makedirs(figdir, exist_ok=True)
+    
+                filtered_offset['figdir'] = figdir
+                
+                # suffix
+                filtered_offset['title'] = title + '_' + str(doc.runid) + '_' + self.version
+                # Save to pickle file
+                pkl_name = os.path.join(filtered_offset_folder, "track_" + self.trackname + "_" +title + ".pkl")
+                with open(pkl_name, "wb") as f:
+                    pickle.dump(filtered_offset, f)
+    
+                # Plot it
+                os.system("/net/kamb/ssd-tmp1/mzzhong/insarRoutines/stack_procs/display_az_rng.py " + pkl_name)
+    
+                # Remove the pickle file
+                os.system("rm " + pkl_name)
 
-            ds = gdal.Open(azOffsetName)
-            filtered_azOffset = ds.GetRasterBand(1).ReadAsArray()
+            if "geo" in option or "both" in option:
 
-            ds = gdal.Open(rngOffsetName)
-            filtered_rngOffset = ds.GetRasterBand(1).ReadAsArray()
+                # height
+                geo_hgtFile = os.path.join(self.trackfolder,self.geometry, 'gc_hgt_offset_' + str(self.doc.runid) + '_' + self.version + '.rdr')
+                ds = gdal.Open(geo_hgtFile)
+                gc_hgt_offset = ds.GetRasterBand(1).ReadAsArray()
+                gc_hgt_offset[gc_hgt_offset==0] = np.nan
+     
+                # Get reference offset field
+                refer_azOffset, refer_rngOffset, vmin_az, vmax_az, vmin_rng, vmax_rng = self._obtain_reference()
+ 
+                # Obtain geocoded filtered offset field
+                gc_azOffsetName = os.path.join(doc.offset_folder,'gc_filtAzimuth_' + self.filt_suffix + '.off')
+                gc_rngOffsetName = os.path.join(doc.offset_folder, 'gc_filtRange_' + self.filt_suffix + '.off')
+    
+                ds = gdal.Open(gc_azOffsetName)
+                gc_filtered_azOffset = ds.GetRasterBand(1).ReadAsArray()
+    
+                ds = gdal.Open(gc_rngOffsetName)
+                gc_filtered_rngOffset = ds.GetRasterBand(1).ReadAsArray()
+    
+                # Convert from the unit from pixel to meter per day
+                gc_filtered_azOffset = gc_filtered_azOffset * doc.azPixelSize / doc.interim
+                gc_filtered_rngOffset = gc_filtered_rngOffset *  doc.rngPixelSize / doc.interim
 
-            # Convert from the unit from pixel to meter per day
-            filtered_azOffset = filtered_azOffset * doc.azPixelSize / doc.interim
-            filtered_rngOffset = filtered_rngOffset *  doc.rngPixelSize / doc.interim
+                # Get Cov of filtered offset field 
+                gc_filteredOffsetVarfile = os.path.join(doc.offset_folder,'gc_filtOffsetVar_' + self.filt_suffix + '.off')
+                ds = gdal.Open(gc_filteredOffsetVarfile)
+                gc_filtered_azOffsetVar = ds.GetRasterBand(1).ReadAsArray()
+                gc_filtered_rngOffsetVar = ds.GetRasterBand(2).ReadAsArray()
+    
+                # Convert from var in pixel to std in meter
+                gc_filtered_azOffsetStd = np.sqrt(gc_filtered_azOffsetVar) * doc.azPixelSize
+                gc_filtered_rngOffsetStd =  np.sqrt(gc_filtered_rngOffsetVar) * doc.rngPixelSize
+    
+                # Save the file as objects to disk and plot them later
+                gc_filtered_offset_folder = disp_temp_folder
+                
+                gc_filtered_offset = {}
+                gc_filtered_offset['refer_azOffset'] = refer_azOffset
+                gc_filtered_offset['refer_rngOffset'] = refer_rngOffset
+ 
+                gc_filtered_offset['gc_filtered_azOffsetStd'] = gc_filtered_azOffsetStd
+                gc_filtered_offset['gc_filtered_rngOffsetStd'] = gc_filtered_rngOffsetStd
+    
+                gc_filtered_offset['gc_filtered_azOffset'] = gc_filtered_azOffset
+                gc_filtered_offset['gc_filtered_rngOffset'] = gc_filtered_rngOffset
 
-            # Get reference offset field
-            refer_azOffset, refer_rngOffset, vmin_az, vmax_az, vmin_rng, vmax_rng = self._obtain_reference()
+                gc_filtered_offset['gc_hgt_offset'] = gc_hgt_offset
 
-            # Get raw offset field
-            offset_outprefix = os.path.join(doc.offset_folder, doc.outprefix)
-            offsetfile = offset_outprefix + '_run_' + str(doc.runid) + '.bip'
-
-            ds = gdal.Open(offsetfile)
-            raw_azOffset = ds.GetRasterBand(1).ReadAsArray()
-            raw_rngOffset = ds.GetRasterBand(2).ReadAsArray()
-
-            # Convert from the unit from pixel to meter per day
-            raw_azOffset = raw_azOffset * doc.azPixelSize / doc.interim
-            raw_rngOffset = raw_rngOffset *  doc.rngPixelSize / doc.interim
-
-            # Save the file as objects to disk and plot them later
-            filtered_offset_folder = disp_temp_folder
-            
-            filtered_offset = {}
-            filtered_offset['filtered_azOffset'] = filtered_azOffset
-            filtered_offset['filtered_rngOffset'] = filtered_rngOffset
-            filtered_offset['refer_azOffset'] = refer_azOffset
-            filtered_offset['refer_rngOffset'] = refer_rngOffset
-            filtered_offset['raw_azOffset'] = raw_azOffset
-            filtered_offset['raw_rngOffset'] = raw_rngOffset
-
-            figdir = os.path.join(self.workdir, 'figs', self.trackname,'radar')
-            pathlib.Path(figdir).mkdir(exist_ok=True)
-
-            filtered_offset['figdir'] = figdir
-            
-            # suffix
-            filtered_offset['title'] = title + '_' + str(doc.runid) + '_' + self.version
-            # Save to pickle file
-            pkl_name = os.path.join(filtered_offset_folder, "track_" + self.trackname + "_" +title + ".pkl")
-            with open(pkl_name, "wb") as f:
-                pickle.dump(filtered_offset, f)
-
-            # Plot it
-            os.system("/net/kamb/ssd-tmp1/mzzhong/insarRoutines/stack_procs/display_az_rng.py " + pkl_name)
-
-            # Remove the pickle file
-            os.system("rm " + pkl_name)
+    
+                figdir = os.path.join(self.workdir, 'figs', self.trackname, 'geocoded')
+                os.makedirs(figdir, exist_ok=True)
+    
+                gc_filtered_offset['figdir'] = figdir
+                
+                # suffix
+                gc_filtered_offset['title'] = title + '_' + str(doc.runid) + '_' + self.version
+                
+                # Save to pickle file
+                pkl_name = os.path.join(gc_filtered_offset_folder, "track_" + self.trackname + "_" +title + ".pkl")
+                with open(pkl_name, "wb") as f:
+                    pickle.dump(gc_filtered_offset, f)
+    
+                # Plot it
+                os.system("/net/kamb/ssd-tmp1/mzzhong/insarRoutines/stack_procs/display_gc_az_rng.py " + pkl_name)
+    
+                # Remove the pickle file
+                os.system("rm " + pkl_name)
 
             return 0 
 
-        def plot_offsetfield(self, option="rdr"):
+        def plot_offsetfield(self, option=None):
 
-            if not option in ["rdr","geo"]:
+            if option is None:
+                option = "both"
+                #option = "rdr"
+                #option = "geo"
+
+            if not option in ["rdr","geo","both"]:
                 print("Wrong option provided: ", option)
                 raise Exception()
 
@@ -2550,7 +3109,7 @@ class dense_offset():
                     print("Plot it")
                     
                     func =  self._plot_offsetfield
-                    p = Process(target=func, args=(offsetfield, ))
+                    p = Process(target=func, args=(offsetfield, option, ))
                     self.jobs.append(p)
                     p.start()
  
@@ -2570,10 +3129,10 @@ class dense_offset():
 
         ############### End of plotting offset field ##########################
 
-        ############### Methods below are for data extration ###################
 
         # Create a stack for easy data access
         def createOffsetFieldStack(self):
+            doc = self.doc
 
             # Control redo the offset field stack
             self.offsetFieldStack_pkl = os.path.join(self.runfolder, self.offsetFolder, "offsetFieldStack_" + str(self.doc.runid) + "_" + self.version + ".pkl")
@@ -2587,11 +3146,10 @@ class dense_offset():
                     offsetFieldStack = self.offsetFieldStack
 
             else:
-
                 print("Generating offset field stack")
                 offsetFieldStack = {}
 
-                # Load in the los file.
+                # Load the los file.
                 geo_losFile = os.path.join(self.trackfolder,self.geometry, 'gc_los_offset_' + str(self.doc.runid) + '_' + self.version + '.rdr')
                 print("geo_losFile: ",geo_losFile)
                 ds = gdal.Open(geo_losFile)
@@ -2599,6 +3157,24 @@ class dense_offset():
 
                 # Put los into the dictionary
                 offsetFieldStack["los"] = losField
+
+                # Load the height file
+                geo_hgtFile = os.path.join(self.trackfolder,self.geometry, 'gc_hgt_offset_' + str(self.doc.runid) + '_' + self.version + '.rdr')
+                print("geo_hgtFile: ",geo_hgtFile)
+                ds = gdal.Open(geo_hgtFile)
+                hgtField = ds.GetRasterBand(1).ReadAsArray()
+
+                # Put hgt into the dictionary
+                offsetFieldStack["hgt"] = hgtField
+
+                # Load the demfactor file
+                geo_demFactorFile = os.path.join(self.trackfolder,self.geometry, 'gc_demfactor_offset_' + str(self.doc.runid) + '_' + self.version + '.rdr')
+                print("geo_demFactorFile: ",geo_demFactorFile)
+                ds = gdal.Open(geo_demFactorFile)
+                demFactorField = ds.GetRasterBand(1).ReadAsArray()
+
+                # Put demfactor into the dictionary
+                offsetFieldStack["demfactor"] = demFactorField
 
                 # Put geometry into the dictionary
                 geo_losVrtFile = geo_losFile + '.vrt'
@@ -2636,27 +3212,76 @@ class dense_offset():
     
                     offset_folder = os.path.join(self.trackfolder,self.offsetFolder,date1str+'_'+date2str)
         
+                    # range
                     geo_rngOffsetFile = os.path.join(offset_folder, 'gc_filtRange_' + self.filt_suffix  + '.off')
+
+                    # azimuth
                     geo_azOffsetFile = os.path.join(offset_folder, 'gc_filtAzimuth_' + self.filt_suffix  + '.off')
 
-                    if not os.path.exists(geo_rngOffsetFile) or not os.path.exists(geo_azOffsetFile):
+                    # cov
+                    offsetCov_outprefix = os.path.join(offset_folder, 'gc_' + doc.outprefix)
+                    offsetCov_outsuffix = '_run_' + str(doc.runid) + '_cov_' + self.version
+
+                    raw_geo_offsetCovFile = offsetCov_outprefix + offsetCov_outsuffix + '.bsq'
+                    filtered_geo_offsetCovFile = os.path.join(offset_folder, 'gc_filtOffsetVar_' + self.filt_suffix + '.off')
+
+                    if not os.path.exists(geo_rngOffsetFile) or not os.path.exists(geo_azOffsetFile) or not os.path.exists(raw_geo_offsetCovFile) or not os.path.exists(filtered_geo_offsetCovFile):
                         print("File doesn't exist, skip: ", title)
                         print(geo_rngOffsetFile)
                         print(geo_azOffsetFile)
+                        print(raw_geo_offsetCovFile)
+                        print(filtered_geo_offsetCovFile)
                         raise Exception()
                     
                     ds = gdal.Open(geo_rngOffsetFile)
                     rngOffsetField = ds.GetRasterBand(1).ReadAsArray()
+                    ds = None
                     
                     ds = gdal.Open(geo_azOffsetFile)
                     azOffsetField = ds.GetRasterBand(1).ReadAsArray()
+                    ds = None
+
+                    ds = gdal.Open(raw_geo_offsetCovFile)
+                    raw_azOffsetFieldVar = ds.GetRasterBand(1).ReadAsArray()
+                    raw_rngOffsetFieldVar = ds.GetRasterBand(2).ReadAsArray()
+                    ds = None
+
+                    ds = gdal.Open(filtered_geo_offsetCovFile)
+                    filtered_azOffsetFieldVar = ds.GetRasterBand(1).ReadAsArray()
+                    filtered_rngOffsetFieldVar = ds.GetRasterBand(2).ReadAsArray()
+                    ds = None
 
                     offsetFieldStack[(title, "rng")] = rngOffsetField
                     offsetFieldStack[(title, "azi")] = azOffsetField
+                    #offsetFieldStack[(title, "raw_rng_var")] = raw_rngOffsetFieldVar
+                    #offsetFieldStack[(title, "raw_azi_var")] = raw_azOffsetFieldVar
+                    #offsetFieldStack[(title, "filtered_rng_var")] = filtered_rngOffsetFieldVar
+                    #offsetFieldStack[(title, "filtered_azi_var")] = filtered_azOffsetFieldVar
 
                 print("Save offset field stack")
                 with open(self.offsetFieldStack_pkl,"wb") as f:
                     pickle.dump(offsetFieldStack, f)
+
+        ############### Methods below are for data extration ###################
+        def load_offsetfield_quality(self):
+            
+            doc = self.doc
+            print(doc.runid)
+            print(self.version)
+            offsetfield_quality_file = os.path.join(self.trackfolder, self.offsetFolder, 'offsetfield_quality_' + str(doc.runid) + '_' + self.version + '.txt')
+            
+            if os.path.exists(offsetfield_quality_file):
+                self.offsetfield_quality = {}
+                f = open(offsetfield_quality_file, 'r')
+                for line in f.readlines():
+                    pairname, quality = line.split()[0], int(line.split()[1])
+                    self.offsetfield_quality[pairname] = quality
+                f.close()
+            else:
+                self.offsetfield_quality = None
+
+            # Enfoce None
+            self.offsetfield_quality = None
 
         def gc_lon_lat_axis(self):
 
@@ -2787,7 +3412,8 @@ class dense_offset():
                 xsize = coord["xsize"]
                 ysize = coord["ysize"]
 
-            print("Hey: ", lon0, lon_interval, lat0, lat_interval)
+            print("Find the index of point set (v2): ", lon0, lon_interval, lat0, lat_interval)
+            print("xsize, ysize: ", xsize, ysize)
 
             # Lon and Lat are independent
             # Get array
@@ -2836,6 +3462,7 @@ class dense_offset():
 
         # Important: the beginning of data and offset field logistics
         def extract_offset_set_series(self, point_set=None, test_point=None, dates=None, offsetFieldStack=None, sate=None, track_num=None):
+            print("Extract offset set series from {} {}...".format(sate,str(track_num)))
 
             # Strategy:
                 # Open each offsetfield once, find offsets for all points.
@@ -2843,32 +3470,80 @@ class dense_offset():
                 # Points inner loop.
 
             # Obtain the index of each point in this offsetFieldStack
-            # Old        
+
+            # Old way, point by point    
             # ind_set = {}
             # for point in point_set:
             #     ind_set[point] = self.point_index(point)
-            # New
+
+            # New way, process point_set in an array together for efficiency
             #ind_set = self.point_set_index(point_set)
             ind_set = self.point_set_index_v2(point_set,  offsetFieldStack["coord"])
 
-            # Initialization.
+            # Initialization of point set
+            output_sets = {}
+
             pairs_set = {}
             offsets_set = {}
+            height_set = {}
+            demfactor_set = {}
+
             for point in point_set:
                 pairs_set[point] = []
                 offsets_set[point] = []
 
-            # Obtain losField
+            # Obtain losField and hgtField
             if offsetFieldStack is None:
-                # Look at the offsetfields
                 # Load in the los file.
                 geo_losFile = os.path.join(self.trackfolder,self.geometry, 'gc_los_offset_' + str(self.doc.runid)+'.rdr')            
-                #print(geo_losFile)
                 ds = gdal.Open(geo_losFile)
                 losField = ds.GetRasterBand(1).ReadAsArray()
 
+                # Load in the hgt file.
+                geo_hgtFile = os.path.join(self.trackfolder,self.geometry, 'gc_hgt_offset_' + str(self.doc.runid)+'.rdr')            
+                ds = gdal.Open(geo_hgtFile)
+                hgtField = ds.GetRasterBand(1).ReadAsArray()
+
+                # Load in the hgt file.
+                geo_demFactorFile = os.path.join(self.trackfolder,self.geometry, 'gc_demfactor_offset_' + str(self.doc.runid)+'.rdr')            
+                ds = gdal.Open(geo_demFactorFile)
+                demFactorField = ds.GetRasterBand(1).ReadAsArray()
+
             else:
                 losField = offsetFieldStack['los']
+                hgtField = offsetFieldStack['hgt']
+                #print(offsetFieldStack.keys())
+                demFactorField = offsetFieldStack['demfactor']
+                # ad hoc way to remove demFactor
+                #demFactorField = np.zeros(shape=losField.shape)
+
+
+            ## Height and demfactor #
+            # Obtain height and demfactor for each point
+            for point in point_set:
+                
+                # Get the index
+                ind_x = ind_set[point][0]
+                ind_y = ind_set[point][1]
+
+                if ind_x is not None and ind_y is not None: 
+                    #if ind_y < hgtField.shape[0] and ind_x < hgtField.shape[1]:
+                        
+                        # los
+                        los = losField[ind_y, ind_x]
+                        # height
+                        height = hgtField[ind_y, ind_x]
+                        # demfactor
+                        demfactor = demFactorField[ind_y, ind_x]
+
+                        # Only record valid values
+                        if los > 5:
+                            height_set[point] = height
+                            demfactor_set[point] = demfactor
+
+            ## Offset Field ##
+            # Get offsetfield quality
+            self.load_offsetfield_quality()
 
             # Loop through the offset fields
             for offsetfield in self.offsetfields:
@@ -2885,10 +3560,29 @@ class dense_offset():
 
                 title = date1str+'_'+date2str
 
+                # Skip bad data
+                # '20131020_20131028','20131113_20131121' are for square large offset
+                # '20131028_20131101','20131028_20131105' are for large offset on the east margin
+                if track_num == 99 and title in ['20131020_20131028','20131113_20131121','20131028_20131101','20131028_20131105']:
+                    continue
+
+                if track_num == 128 and title in ['20140424_20140428']:
+                    continue
+
+                if track_num == 232 and title in ['20130911_20130919', '20131022_20131029']:
+                #if track_num == 232 and title in ['20130911_20130919', '20131022_20131029','20140218_20140226','20131216_20131224','20131212_20131216']:
+                    continue
+
+                # Quality control: Skip bad quality offset field
+                # 1: good, 2: okay, 3: bad
+                if self.offsetfield_quality is not None:
+                    if self.offsetfield_quality[title] == 3:
+                        print("exclude offset field: ", sate, track_num, title)
+                        raise Exception("quality control is not ready")
+
                 # Read in the original data
                 if offsetFieldStack is None:
-
-                    offset_folder = os.path.join(self.trackfolder,self.offsetFolder,date1str+'_'+date2str)
+                    offset_folder = os.path.join(self.trackfolder,self.offsetFolder, title)
     
                     geo_rngOffsetFile = os.path.join(offset_folder,'gc_filtRange_' + self.filt_suffix  + '.off')
                     geo_azOffsetFile = os.path.join(offset_folder,'gc_filtAzimuth_' + self.filt_suffix  + '.off')
@@ -2908,9 +3602,22 @@ class dense_offset():
                     try:
                         rngOffsetField = offsetFieldStack[(title,"rng")]
                         azOffsetField = offsetFieldStack[(title,"azi")]
+
                     except:
                         print(offsetfield, track_num)
                         raise Exception("geocoded offset field missing!")
+
+                    if (title, 'filtered_rng_var') in offsetFieldStack:
+                        # original 
+                        #rngOffsetFieldVar = offsetFieldStack[(title,"raw_rng_var")]
+                        #azOffsetFieldVar = offsetFieldStack[(title,"raw_azi_var")]
+                        
+                        # median-filtered
+                        rngOffsetFieldVar = offsetFieldStack[(title,"filtered_rng_var")]
+                        azOffsetFieldVar = offsetFieldStack[(title,"filtered_azi_var")]
+                    else:
+                        rngOffsetFieldVar = None
+                        azOffsetFieldVar = None
 
                 ########################################################
 
@@ -2921,38 +3628,58 @@ class dense_offset():
                     ind_y = ind_set[point][1]
 
                     # Available in this track offsetfield, based on grid_point_set
-                    
                     if ind_x is not None and ind_y is not None: 
 
                         # 2020.03.20
                         # However, it is possible and different resolution offset field dataset are not consistent
                         if ind_y < rngOffsetField.shape[0] and ind_x < rngOffsetField.shape[1]:
+
+                            # offset
                             rngOffset = rngOffsetField[ind_y, ind_x]
                             azOffset = azOffsetField[ind_y, ind_x]
+
+                            # offsetVar
+                            if rngOffsetFieldVar is not None:
+                                rngOffsetVar = rngOffsetFieldVar[ind_y, ind_x]
+                                azOffsetVar = azOffsetFieldVar[ind_y, ind_x]
+                            else:
+                                rngOffsetVar = None
+                                azOffsetVar = None
+
+                            # los
                             los = losField[ind_y, ind_x]
 
-                            if point == test_point and track_num==10 and title=="20131115_20131123":
-                                print("point: ", point)
-                                print("rngOffset, azOffset: ", rngOffset, azOffset)
-                                print("ind_y, ind_x: ", ind_y, ind_x)
+                            # print out for test
+                            #if point == test_point and track_num==10 and title=="20131115_20131123":
+                            #    print("point: ", point)
+                            #    print("rngOffset, azOffset: ", rngOffset, azOffset)
+                            #    print("ind_y, ind_x: ", ind_y, ind_x)
 
                             # The value is valid.
                             # los > 5 is able to remove border/filled-in values
                             if (not np.isnan(rngOffset) and not np.isnan(azOffset) and los > 5):
-    
+                                
                                 # Convert offset from pixel to meter.
                                 rngOffset = rngOffset * self.doc.rngPixelSize
                                 azOffset = azOffset * self.doc.azPixelSize
-    
-                                # Comply to the los vector definition.
-                                # Pointed from ground to satellite.
+
+                                # Convert offset variance from pixel^2 to meter^2
+                                if rngOffsetVar:
+                                    rngOffsetVar = rngOffsetVar * (self.doc.rngPixelSize**2)
+                                    azOffsetVar = azOffsetVar * (self.doc.azPixelSize**2)
+
+                                # Comply with the los vector definition: Pointed from ground to satellite.
+                                # the measured range offset is from satellite to ground
                                 rngOffset = -rngOffset
     
                                 # Save them
                                 pairs_set[point].append([date1,date2])
-                                offsets_set[point].append([rngOffset, azOffset])
+
+                                #offsets_set[point].append([rngOffset, azOffset])
+                                offsets_set[point].append([rngOffset, azOffset, rngOffsetVar, azOffsetVar])
+
                         else:
-                            print("Hey, index is out of range: ", ind_y, ind_x, rngOffsetField.shape, point, sate, track_num) 
+                            print("Error, index is out of range: ", ind_y, ind_x, rngOffsetField.shape, point, sate, track_num) 
                             raise Exception("Index out of range")
 
                     #if point == test_point and track_num==10 and title=="20131115_20131123":
@@ -2961,6 +3688,11 @@ class dense_offset():
 
                 # End of this offsetfield.
 
-            return (pairs_set, offsets_set)
+            output_sets["pairs_set"] = pairs_set
+            output_sets["offsets_set"] = offsets_set
+            output_sets["height_set"] = height_set
+            output_sets["demfactor_set"] = demfactor_set
+            #return (pairs_set, offsets_set, height_set, demfactor_set)
+            return output_sets
 
 ## End of dense_offset object
