@@ -1433,7 +1433,9 @@ class dense_offset():
         def _get_nan_expand_window_size(self):
 
             doc = self.doc
+            version = self.version
 
+            # For CSK, 2019**** #
             if str(doc.runid).startswith('20190900'):
                 return 7
             elif str(doc.runid).startswith('20190901'):
@@ -1445,10 +1447,14 @@ class dense_offset():
 
             # winsize 120m x 120m, step size 60 m x 60 m
             elif str(doc.runid).startswith('20190921'):
-
                 return 7
 
-            # winsize 60m x 120m, step size 30 m x 60 m
+            # For S1, 2020**** #
+            # Winsize 60m x 120m, step size 30 m x 60 m
+
+            elif doc.runid == 20200103 and version == 'v13':
+                return 14
+
             elif doc.runid == 20190925:
                 return 7
             elif doc.runid == 20200101:
@@ -1464,7 +1470,7 @@ class dense_offset():
             elif doc.runid == 20201001:
                 return 7
             else:
-                raise Exception("Need size of Nan expand window")
+                raise Exception("Need to set the size of Nan expand window")
 
         def _generic_median_filter(self, data, data_snr, mask=None, label=None, refer=None):
 
@@ -3089,8 +3095,8 @@ class dense_offset():
         def plot_offsetfield(self, option=None):
 
             if option is None:
-                option = "both"
-                #option = "rdr"
+                #option = "both"
+                option = "rdr"
                 #option = "geo"
 
             if not option in ["rdr","geo","both"]:

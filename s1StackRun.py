@@ -32,7 +32,7 @@ S1Astart_dt = datetime.datetime.strptime(S1Astart, '%Y%m%d')
 S1Bstart = '20160501'
 S1Bstart_dt = datetime.datetime.strptime(S1Bstart, '%Y%m%d')
 
-## Set up the project and runid
+## Set up the project and the corresponding folders
 proj_name = "S1-Evans"
 #proj_name = 'LA_Basin'
 
@@ -41,53 +41,15 @@ if proj_name == "S1-Evans":
     old_workdir = '/net/kraken/nobak/mzzhong/S1-Evans'
     workdir = '/net/kraken/nobak/mzzhong/S1-Evans-v2'
 
-    # runid = 20180703
-    # params: ww=256 wh=128 sw=10 sh=10 kw=128 kh=64
-    #runid = 20180703
-
-    # runid = 20200101
-    # params: ww=256 wh=128 sw=10 sh=10 kw=128 kh=64
-    # run with new GPU ampcor
-    #runid = 20200101
-
-    # runid = 20200102
-    # params: ww=480 wh=128 sw=10 sh=10 kw=256 kh=64
-    # run with new GPU ampcor
-    #runid = 20200102
-
-    # runid = 20200103
-    # params: ww=480 wh=120 sw=10 sh=10 kw=240 kh=60
-    # run with new gpu ampcor that fixes uncertainty estimation
-    #runid = 20200103
-
-    # runid = 20200104
-    # params: ww=480 wh=120 sw=10 sh=10 kw=240 kh=60
-    # run with new gpu ampcor thats allows large chip size 
-    # and some small fixes in uncertainty estimation
-    # e.g. change covariance invalid value from 99 to 0 
-    # (2021.05.11)
-    #runid = 20200104
-
-    # runid = 20200105
-    # params: ww=960 wh=240 sw=10 sh=10 kw=240 kh=60
-    # run with new gpu ampcor (exp_6)
-    runid = 20200105
-
 elif proj_name == "RC":
     stack = 'tops_RC'
     workdir = '/net/kraken/nobak/mzzhong/RC_denseOffsets'
-    runid = 20190725
 
 elif proj_name == "LA_Basin":
     stack = 'tops_LA_Basin'
     workdir = '/net/kraken/nobak/mzzhong/LA_Basin'
-    runid = 20201001
-    # ww = 128 wh = 32 kw = 64 kh = 32 sw=10 sh = 10, os = 64
 else:
     raise Exception("Unknown project name")
-
-# Version
-version='v12'
 
 # Steps and processors.
 steplist = ['init','create','unpack_slc_topo_master', 'average_baseline', 'geo2rdr_resample', 'extract_stack_valid_region', 'merge_master_slave_slc', 'dense_offsets', 'postprocess','geocode','plot_offsetfield','create_stack','show_doc']
@@ -117,6 +79,9 @@ def createParser():
     parser.add_argument('-first', dest='first',type=str,help='the first step',default=None)
     parser.add_argument('-last', dest='last',type=str,help='the last step',default=None)
     parser.add_argument('-do', dest='do',type=str,help='do this step',default=None)
+
+    parser.add_argument('--runid', dest='runid',type=int,help='runid for dense offset',default=None)
+    parser.add_argument('--version', dest='version',type=str,help='version for dense offset processing',default=None)
 
     parser.add_argument('--s_date', dest='s_date', type=str, default=S1Astart, help='Start date')
     parser.add_argument('--e_date', dest='e_date', type=str, default=today, help='Stop date')
@@ -310,10 +275,54 @@ def check_exist(step,line):
 def main(iargs=None):
 
     ## Prepare the parameters.
-
     inps = cmdLineParse(iargs)
 
-    # the tracks to process
+    ## For S1-Evans ##
+    # runid = 20180703
+    # params: ww=256 wh=128 sw=10 sh=10 kw=128 kh=64
+    #runid = 20180703
+
+    # runid = 20200101
+    # params: ww=256 wh=128 sw=10 sh=10 kw=128 kh=64
+    # run with new GPU ampcor
+    #runid = 20200101
+
+    # runid = 20200102
+    # params: ww=480 wh=128 sw=10 sh=10 kw=256 kh=64
+    # run with new GPU ampcor
+    #runid = 20200102
+
+    # runid = 20200103
+    # params: ww=480 wh=120 sw=10 sh=10 kw=240 kh=60
+    # run with new gpu ampcor that fixes uncertainty estimation
+    #runid = 20200103
+
+    # runid = 20200104
+    # params: ww=480 wh=120 sw=10 sh=10 kw=240 kh=60
+    # run with new gpu ampcor thats allows large chip size 
+    # and some small fixes in uncertainty estimation
+    # e.g. change covariance invalid value from 99 to 0 
+    # (2021.05.11)
+    #runid = 20200104
+
+    # runid = 20200105
+    # params: ww=960 wh=240 sw=10 sh=10 kw=240 kh=60
+    # run with new gpu ampcor (exp_6)
+    #runid = 20200105
+ 
+
+    ## For RC ##
+    # runid = 20190725
+
+    ## For LA_Basin ##
+    # runid = 20201001
+    # ww = 128 wh = 32 kw = 64 kh = 32 sw=10 sh = 10, os = 64
+
+    ## prepare runid and version
+    runid = inps.runid
+    version = inps.version
+
+    # The tracks to process
     if inps.tracks is not None:
         tracks = inps.tracks.split(',')
 
