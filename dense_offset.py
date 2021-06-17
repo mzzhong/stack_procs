@@ -2602,23 +2602,29 @@ class dense_offset():
         def _get_trim_size(self):
 
             doc = self.doc
-            # csk-r
+            ## csk-r and csk-e ##
+
             # 960 x 480, 240 x 120
             if doc.runid in [20190900]:
-                return 45
+                #return 45
+                return 85
+
             # 480 x 240, 240 x 120
             elif doc.runid in [20190901,201909010,201909012,201909013]:
                 return 45
+
             # 480 x 240, 120 x 60
             elif doc.runid in [201909011, 201909014]:
                 #return 22
                 return 25
+
             elif doc.runid == 20190904:
                 return 25
+
             elif doc.runid == 20190921:
                 return 15
             
-            # s1-e
+            ## s1-e ##
             elif doc.runid == 20200102:
                 return 30
             elif doc.runid == 20200103:
@@ -2774,13 +2780,22 @@ class dense_offset():
             cmd2 = 'los2enu.py -los {losfile}'.format(losfile = gc_losfile)
             print(cmd2)
 
-            force_run = False
+            force_run = True
             if force_run:
                 print("Forced run...")
                 #print(cmd01)
                 #os.system(cmd01)
 
-                print('Trim los border')
+                print('Geocode and trim los border')
+                # remove the file
+                rm_cmd = 'rm ' + self.trackfolder + '/' + self.geometry + '/gc_los_offset_' + str(doc.runid) + '_' + self.version + '*'
+                print(rm_cmd)
+                os.system(rm_cmd)
+
+                # geocode
+                print(cmd1)
+                os.system(cmd1)
+
                 # Trim the los file to remove the extrapolation on the borders
                 self._trim_borders(gc_losfile)
 
@@ -3272,8 +3287,8 @@ class dense_offset():
         def load_offsetfield_quality(self):
             
             doc = self.doc
-            print(doc.runid)
-            print(self.version)
+            #print(doc.runid)
+            #print(self.version)
             offsetfield_quality_file = os.path.join(self.trackfolder, self.offsetFolder, 'offsetfield_quality_' + str(doc.runid) + '_' + self.version + '.txt')
             
             if os.path.exists(offsetfield_quality_file):
@@ -3288,6 +3303,44 @@ class dense_offset():
 
             # Enfoce None
             self.offsetfield_quality = None
+
+        def check_bad_offsetfield(self, proj, sate, track_num, title):
+
+            # csk-e
+            remove_csk_e_12 = False
+            if proj == 'Evans' and sate == 'csk':
+                if track_num == 12 and title in ['20171209_20171213', 
+                                                 '20181029_20181106',
+                                                 '20190214_20190218',
+                                                 '20190226_20190227',
+                                                 '20190314_20190315',
+                                                 '20190314_20190318',
+                                                 '20190315_20190318',
+                                                 '20191117_20191124',
+                                                 '20191121_20191124',
+                                                 '20200229_20200308',
+                                                 '20200315_20200316']:
+                    
+                    if remove_csk_e_12 == False:
+                        return False
+                    else:
+                        return True
+
+            # csk-r
+            # '20131020_20131028','20131113_20131121' are for square large offset
+            # '20131028_20131101','20131028_20131105' are for large offset on the east margin
+            if proj == 'Rutford' and sate == 'csk':
+                if track_num == 99 and title in ['20131020_20131028','20131113_20131121','20131028_20131101','20131028_20131105']:
+                    return True
+
+                if track_num == 128 and title in ['20140424_20140428']:
+                    return True
+
+                if track_num == 232 and title in ['20130911_20130919', '20131022_20131029']:
+                #if track_num == 232 and title in ['20130911_20130919', '20131022_20131029','20140218_20140226','20131216_20131224','20131212_20131216']:
+                    return True
+ 
+            return False
 
         def gc_lon_lat_axis(self):
 
@@ -3467,8 +3520,8 @@ class dense_offset():
             return ind_set
 
         # Important: the beginning of data and offset field logistics
-        def extract_offset_set_series(self, point_set=None, test_point=None, dates=None, offsetFieldStack=None, sate=None, track_num=None):
-            print("Extract offset set series from {} {}...".format(sate,str(track_num)))
+        def extract_offset_set_series(self, point_set=None, test_point=None, dates=None, offsetFieldStack=None, proj=None, sate=None, track_num=None):
+            print("Extract offset set series from {} {}...".format(proj, sate, str(track_num)))
 
             # Strategy:
                 # Open each offsetfield once, find offsets for all points.
@@ -3549,7 +3602,7 @@ class dense_offset():
 
             ## Offset Field ##
             # Get offsetfield quality
-            self.load_offsetfield_quality()
+            #self.load_offsetfield_quality()
 
             # Loop through the offset fields
             for offsetfield in self.offsetfields:
@@ -3566,25 +3619,17 @@ class dense_offset():
 
                 title = date1str+'_'+date2str
 
-                # Skip bad data
-                # '20131020_20131028','20131113_20131121' are for square large offset
-                # '20131028_20131101','20131028_20131105' are for large offset on the east margin
-                if track_num == 99 and title in ['20131020_20131028','20131113_20131121','20131028_20131101','20131028_20131105']:
-                    continue
 
-                if track_num == 128 and title in ['20140424_20140428']:
-                    continue
-
-                if track_num == 232 and title in ['20130911_20130919', '20131022_20131029']:
-                #if track_num == 232 and title in ['20130911_20130919', '20131022_20131029','20140218_20140226','20131216_20131224','20131212_20131216']:
+                ### Skip bad data ###
+                if self.check_bad_offsetfield(proj, sate, track_num, title):
                     continue
 
                 # Quality control: Skip bad quality offset field
                 # 1: good, 2: okay, 3: bad
-                if self.offsetfield_quality is not None:
-                    if self.offsetfield_quality[title] == 3:
-                        print("exclude offset field: ", sate, track_num, title)
-                        raise Exception("quality control is not ready")
+                #if self.offsetfield_quality is not None:
+                #    if self.offsetfield_quality[title] == 3:
+                #        print("exclude offset field: ", sate, track_num, title)
+                #        raise Exception("quality control is not ready")
 
                 # Read in the original data
                 if offsetFieldStack is None:
