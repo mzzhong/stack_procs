@@ -1376,13 +1376,12 @@ class dense_offset():
             if doc.runid in [20190900]:
                 return (9,9)
 
-            # 480 x 240 pixel, 240 x 120 pixel
+            # 480 x 240 pixel, 240 x 120 pixel (deprecated)
             elif doc.runid in [20190901,201909010,201909012,201909013]:
                 return (5,5)
 
             # 480 x 240 pixel, 120 x 60 pixel
             elif doc.runid in [201909011, 201909014]:
-
                 if self.version == "v12":
                     return (5,5)
 
