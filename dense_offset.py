@@ -5,6 +5,7 @@ import sys
 import numpy as np
 import glob
 import pathlib
+import collections
 
 import datetime
 
@@ -3546,9 +3547,13 @@ class dense_offset():
             height_set = {}
             demfactor_set = {}
 
+            # this is to record the maximum number of offset pairs
+            max_num_of_offsets_set = {}
+
             for point in point_set:
                 pairs_set[point] = []
                 offsets_set[point] = []
+                max_num_of_offsets_set[point] = 0
 
             # Obtain losField and hgtField
             if offsetFieldStack is None:
@@ -3618,7 +3623,6 @@ class dense_offset():
 
                 title = date1str+'_'+date2str
 
-
                 ### Skip bad data ###
                 if self.check_bad_offsetfield(proj, sate, track_num, title):
                     continue
@@ -3647,7 +3651,7 @@ class dense_offset():
                     ds = gdal.Open(geo_azOffsetFile)
                     azOffsetField = ds.GetRasterBand(1).ReadAsArray()
 
-                # Read from the stack 2019.12.21
+                # Read from the stack (changed since 2019.12.21)
                 else:
                     try:
                         rngOffsetField = offsetFieldStack[(title,"rng")]
@@ -3696,8 +3700,18 @@ class dense_offset():
                                 rngOffsetVar = None
                                 azOffsetVar = None
 
-                            # los
+                            # get the los value
                             los = losField[ind_y, ind_x]
+
+                            # For this track, given a point, check whether there is supposed to be data or not
+                            # if los is valid, record it as possible data
+                            if los > 5:
+                                max_num_of_offsets_set[point] = max_num_of_offsets_set[point] + 1
+                            else:
+                                #print("No data is supposed to exist for track {} at:".format(track_num))
+                                #print(point)
+                                #print(stop)
+                                pass
 
                             # print out for test
                             #if point == test_point and track_num==10 and title=="20131115_20131123":
@@ -3742,7 +3756,11 @@ class dense_offset():
             output_sets["offsets_set"] = offsets_set
             output_sets["height_set"] = height_set
             output_sets["demfactor_set"] = demfactor_set
-            #return (pairs_set, offsets_set, height_set, demfactor_set)
+            output_sets["max_num_of_offsets_set"] = max_num_of_offsets_set
+
+            #print('AAA')
+            #print(max_num_of_offsets_set)
+
             return output_sets
 
 ## End of dense_offset object
