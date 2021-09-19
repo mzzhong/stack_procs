@@ -3659,7 +3659,12 @@ class dense_offset():
 
                     except:
                         print(offsetfield, track_num)
-                        raise Exception("geocoded offset field missing!")
+                        #raise Exception("geocoded offset field missing!")
+                        print("The geocoded offset {} {} {} field missing!".format(sate, str(track_num), title))
+                        print("Setting the offset value to be NaN")
+
+                        rngOffsetField = np.zeros(shape=losField.shape) + np.nan
+                        azOffsetField = np.zeros(shape=losField.shape) + np.nan
 
                     if (title, 'filtered_rng_var') in offsetFieldStack:
                         # original 
