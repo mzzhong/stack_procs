@@ -318,7 +318,7 @@ def main(iargs=None):
     # runid = 201909014
     #params: ww=480, wh=240, sw=16, sh=16, kw=120, kh=60
     #params: smaller skip size
-    # Run with the latest GPU
+    # Run with the latest GPU, same as 201909011
     #runid = 201909014
 
     #############################

@@ -1383,7 +1383,7 @@ class dense_offset():
 
             # 480 x 240 pixel, 120 x 60 pixel
             elif doc.runid in [201909011, 201909014]:
-                if self.version == "v12":
+                if self.version in [ "v12", "v15"]:
                     return (5,5)
 
                 elif self.version in ["v13", "v14"]:
@@ -1437,40 +1437,54 @@ class dense_offset():
 
             # For CSK, 2019**** #
             if str(doc.runid).startswith('20190900'):
-                return 7
+                out=7
             elif str(doc.runid).startswith('20190901'):
-                return 7
+                out=7
+            
             elif doc.runid==20190904:
-                return 7
+                out=7
+            
             elif doc.runid==20190908:
-                return 7
+                out=7
 
             # winsize 120m x 120m, step size 60 m x 60 m
             elif str(doc.runid).startswith('20190921'):
-                return 7
+                out=7
 
             # For S1, 2020**** #
             # Winsize 60m x 120m, step size 30 m x 60 m
 
-            elif doc.runid == 20200103 and version == 'v13':
-                return 14
+            elif doc.runid == 20200103 and version in ['v13','v15']:
+                out=14
 
             elif doc.runid == 20190925:
-                return 7
+                out=7        
+
             elif doc.runid == 20200101:
-                return 7
+                out=7
+
             elif doc.runid == 20200102:
-                return 7
+                out=7
+
             elif doc.runid == 20200103:
-                return 7
+                out=7
+
             elif doc.runid == 20200104:
-                return 7
+                out=7
+
             elif doc.runid == 20200105:
-                return 7
+                out=7
+
             elif doc.runid == 20201001:
-                return 7
+                out=7
+
             else:
                 raise Exception("Need to set the size of Nan expand window")
+
+            #print('nan window: ', out)
+            #print(stop)
+
+            return out
 
         def _generic_median_filter(self, data, data_snr, mask=None, label=None, refer=None):
 
