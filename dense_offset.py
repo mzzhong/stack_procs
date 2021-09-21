@@ -3166,11 +3166,20 @@ class dense_offset():
 
 
         # Create a stack for easy data access
-        def createOffsetFieldStack(self):
+        def createOffsetFieldStack(self, dtype='float32'):
             doc = self.doc
 
+            dtype = 'float16'
+
             # Control redo the offset field stack
-            self.offsetFieldStack_pkl = os.path.join(self.runfolder, self.offsetFolder, "offsetFieldStack_" + str(self.doc.runid) + "_" + self.version + ".pkl")
+            if dtype == 'float32':
+                self.offsetFieldStack_pkl = os.path.join(self.runfolder, self.offsetFolder, "offsetFieldStack_" + str(self.doc.runid) + "_" + self.version + ".pkl")
+            
+            elif dtype == 'float16':
+                self.offsetFieldStack_pkl = os.path.join(self.runfolder, self.offsetFolder, "offsetFieldStack_" + str(self.doc.runid) + "_" + self.version + "_float16.pkl")
+
+            else:
+                raise ValueError()
 
             redo_offsetFieldStack = 1
             
@@ -3286,8 +3295,17 @@ class dense_offset():
                     filtered_rngOffsetFieldVar = ds.GetRasterBand(2).ReadAsArray()
                     ds = None
 
-                    offsetFieldStack[(title, "rng")] = rngOffsetField
-                    offsetFieldStack[(title, "azi")] = azOffsetField
+                    if dtype == 'float32':
+                        offsetFieldStack[(title, "rng")] = rngOffsetField
+                        offsetFieldStack[(title, "azi")] = azOffsetField
+
+                    elif dtype == 'float16':
+                        offsetFieldStack[(title, "rng")] = rngOffsetField.astype('float16')
+                        offsetFieldStack[(title, "azi")] = azOffsetField.astype('float16')
+
+                    else:
+                        raise ValueError()
+
                     #offsetFieldStack[(title, "raw_rng_var")] = raw_rngOffsetFieldVar
                     #offsetFieldStack[(title, "raw_azi_var")] = raw_azOffsetFieldVar
                     #offsetFieldStack[(title, "filtered_rng_var")] = filtered_rngOffsetFieldVar
