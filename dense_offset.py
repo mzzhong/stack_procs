@@ -669,6 +669,23 @@ class dense_offset():
             self.tracknumber = int(trackname.split('_')[1])
             self.trackfolder = self.workdir + '/' + self.trackname
 
+            # decompose workdir
+            proj_full_name = self.workdir.split('/')[-1]
+            if proj_full_name.startswith('CSK'):
+                self.satename = 'csk'
+            elif proj_full_name.startswith('S1'):
+                self.satename = 's1'
+            else:
+                raise ValueError('unable to find satename from workdir')
+
+            if 'Rutford' in proj_full_name:
+                self.project = 'Rutford'
+
+            elif 'Evans' in proj_full_name:
+                self.project = 'Evans'
+            else:
+                raise ValueError('unable to find proj name from workdir')
+
             # runfolder
             self.runfolder = self.trackfolder
 
@@ -2629,8 +2646,24 @@ class dense_offset():
 
             # 480 x 240, 120 x 60
             elif doc.runid in [201909011, 201909014]:
-                #return 22
-                return 25
+
+                # Ad hoc for csk rutford project
+                if self.satename == 'csk' and self.project == 'Rutford':
+                    if self.tracknumber in [10]:
+                        return 25
+
+                    elif self.tracknumber in [232]:
+                        return 25
+
+                    elif self.tracknumber in [156]:
+                        return 28
+
+                    else:
+                        return 25
+
+                # For csk evans project
+                else: 
+                    return 25
 
             elif doc.runid == 20190904:
                 return 25
@@ -2659,6 +2692,8 @@ class dense_offset():
         def _trim_borders(self, filename):
 
             trim_size = self._get_trim_size()
+
+            print('trim_size: ', trim_size)
 
             ds = gdal.Open(filename)
             print("filename: ", filename)
@@ -2699,7 +2734,7 @@ class dense_offset():
 
             return 0
 
-        def _geocode(self,s_date=None,e_date=None):
+        def _geocode(self,s_date=None, e_date=None):
             
             doc = self.doc
 
