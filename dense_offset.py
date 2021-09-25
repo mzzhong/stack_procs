@@ -2650,10 +2650,10 @@ class dense_offset():
                 # Ad hoc for csk rutford project
                 if self.satename == 'csk' and self.project == 'Rutford':
                     if self.tracknumber in [10]:
-                        return 25
+                        return 20
 
                     elif self.tracknumber in [232]:
-                        return 25
+                        return 20
 
                     elif self.tracknumber in [156]:
                         return 28
