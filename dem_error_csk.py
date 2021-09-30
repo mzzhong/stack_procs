@@ -15,7 +15,27 @@ from CSK_Rutford_Utils import CSK_Rutford_Utils
 
 proj = "CSK-Evans"
 
-def get_master(workdir, name):
+if proj == "CSK-Rutford":
+    old_workdir="/net/kraken/nobak/mzzhong/CSK-Rutford"
+    workdir="/net/kraken/nobak/mzzhong/CSK-Rutford-v2"
+elif proj == "CSK-Evans":
+    workdir = "/marmot-nobak/mzzhong/CSK-Evans-v3" 
+else:
+    raise ValueError()
+
+if proj == "CSK-Rutford":
+    tracklist = [8,10,23,25,40,52,55,67,69,82,97,99,114,126,128,129,141,143,156,158,171,172,173,186,188,201,203,215,218,230,231,232]
+
+elif proj == "CSK-Evans":
+    #tracklist = range(22)
+    tracklist = [14,15,16,17,18]
+
+else:
+    raise ValueError()
+
+istack=1
+
+def get_master(workdir, track_name):
     # Find master
     if proj == "CSK-Rutford":
         option = 1
@@ -26,7 +46,7 @@ def get_master(workdir, name):
 
     # choose the same one as the old setup
     if option == 1:
-        f = open(os.path.join(workdir, name, "readme"))
+        f = open(os.path.join(workdir, track_name, "readme"))
         line = f.readlines()[0]
         f.close()
         elements = line.split()
@@ -34,6 +54,7 @@ def get_master(workdir, name):
             if element == "-m" or element == "--master":
                 master = elements[i+1]
                 break
+    
     # choose from the provided list
     elif option == 2:
         master = None
@@ -43,7 +64,7 @@ def get_master(workdir, name):
         for line in lines:
             try:
                 line_name, line_master = line.split()
-                if line_name == name:
+                if line_name == track_name:
                     master = line_master
             except:
                 pass
@@ -52,23 +73,10 @@ def get_master(workdir, name):
     
     return master
 
-if proj == "CSK-Rutford":
-    tracklist = [8,10,23,25,40,52,55,67,69,82,97,99,114,126,128,129,141,143,156,158,171,172,173,186,188,201,203,215,218,230,231,232]
-elif proj == "CSK-Evans":
-    tracklist = range(22)
-else:
-    raise ValueError()
-
-if proj == "CSK-Rutford":
-    old_workdir="/net/kraken/nobak/mzzhong/CSK-Rutford"
-    workdir="/net/kraken/nobak/mzzhong/CSK-Rutford-v2"
-elif proj == "CSK-Evans":
-    workdir = "/marmot-nobak/mzzhong/CSK-Evans-v3" 
-
-# look through all tracks
+# loop through all tracks
 for track in tracklist:
     print(track)
-    track_name = "track_" + str(track).zfill(3) + '_0'
+    track_name = "track_" + str(track).zfill(3) + '_' + str(istack)
 
     if proj == "CSK-Rutford":
         # find the master
@@ -79,7 +87,9 @@ for track in tracklist:
         print(master)
 
     # find the starting range of master
-    master_data_pkl = os.path.join(workdir, track_name, "raw", master,"data.pkl")
+    master_data_pkl = os.path.join(workdir, track_name, "raw", master, "data.pkl")
+
+    print(master_data_pkl)
     
     with open(master_data_pkl, 'rb') as f:
         master_data = pickle.load(f)

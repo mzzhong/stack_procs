@@ -645,7 +645,7 @@ class dense_offset():
 
                     # Create symbolic link to the master image data
                     if not os.path.exists(masterfolder):
-                        os.mkdir(masterfolder)
+                        os.makedirs(masterfolder, exist_ok=True)
                         linked_prefix = os.path.join(self.runfolder, self.master_folder, masterdate, masterdate)
                         linking_prefix = os.path.join(self.runfolder, self.slcs_folder, masterdate, masterdate)
      
@@ -2848,6 +2848,11 @@ class dense_offset():
                 # Trim the los file to remove the extrapolation on the borders
                 self._trim_borders(gc_losfile)
 
+                # Convert to observational vectors
+                #print('Convert LOS to observational vectors ...')
+                #cmd2 = 'los2enu.py -los {losfile}'.format(losfile = gc_losfile)
+                #os.system(cmd2)
+            
             if self.exe:
                 # Delete the old files.
                 os.system('rm ' + self.trackfolder + '/' + self.geometry + '/gc*' + str(doc.runid) + '*' + self.version + '*' )
@@ -3229,7 +3234,7 @@ class dense_offset():
                 offsetFieldStack = {}
 
                 # Load the los file.
-                geo_losFile = os.path.join(self.trackfolder,self.geometry, 'gc_los_offset_' + str(self.doc.runid) + '_' + self.version + '.rdr')
+                geo_losFile = os.path.join(self.trackfolder, self.geometry, 'gc_los_offset_' + str(self.doc.runid) + '_' + self.version + '.rdr')
                 print("geo_losFile: ",geo_losFile)
                 ds = gdal.Open(geo_losFile)
                 losField = ds.GetRasterBand(1).ReadAsArray()
